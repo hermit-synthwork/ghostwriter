@@ -1,0 +1,12 @@
+node_modules/
+.env
+.env.local
+*.log
+episodes/*/panels/raw/
+episodes/*/panels/final-9x16/
+episodes/*/panels/final-4x5/
+episodes/*/upload/
+episodes/*/character-sheet.png
+episodes/*/review.html
+assets/smoke.png
+.DS_Store

@@ -1,0 +1,25 @@
+{
+  "_comment": "Placeholder brand identity. Update handle + displayName once the TikTok/IG accounts exist, then re-run `npm run compose` for any episode to refresh the lockup.",
+  "handle": "@ghostwriter.comics",
+  "displayName": "GHOSTWRITER",
+  "colors": {
+    "ink": "#0E0E10",
+    "paper": "#EDE7DB",
+    "accent": "#7A2E2E",
+    "narrationBg": "#0E0E10",
+    "narrationText": "#EDE7DB"
+  },
+  "header": {
+    "show": true,
+    "text": "GHOSTWRITER",
+    "position": "top-left"
+  },
+  "pageCounter": {
+    "show": true,
+    "position": "bottom-right"
+  },
+  "watermark": {
+    "show": true,
+    "position": "bottom-center"
+  }
+}
