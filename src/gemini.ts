@@ -4,11 +4,13 @@ import { GoogleGenAI } from "@google/genai";
 import { loadEnv, requireEnv, REPO_ROOT } from "./lib/env.ts";
 
 /**
- * Current Gemini image model ("Nano Banana"). Override with GEMINI_IMAGE_MODEL.
- * Confirm the id against https://ai.google.dev/gemini-api/docs/image-generation
- * if generation 404s.
+ * Gemini image model. Verified available on this API (Feb 2026):
+ *   gemini-3.1-flash-image       — Nano Banana 2 (default: fast, cheap, good consistency)
+ *   gemini-3.1-flash-lite-image  — Nano Banana 2 Lite (cheapest)
+ *   gemini-3-pro-image           — Nano Banana Pro (best quality + in-image text)
+ * Override with GEMINI_IMAGE_MODEL in .env.
  */
-export const IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";
+export const IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "gemini-3.1-flash-image";
 
 const KEY_HINT =
   "Get a key at https://aistudio.google.com/apikey (free tier works). Var: GEMINI_API_KEY";
