@@ -1,20 +1,29 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync, copyFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { loadEnv } from "./lib/env.ts";
+import sharp from "sharp";
+import { loadEnv, requireEnv, REPO_ROOT } from "./lib/env.ts";
 import { resolveEpisodeDir, loadStory, panelFile, type Status } from "./lib/story.ts";
+import { uploadImage, createPost, type PublishMode } from "./lib/zernio.ts";
 
 /**
- * Phase 1 (now): assemble an upload-ready bundle and stop — the TikTok/IG
- * accounts don't exist yet, so there's nothing to post to.
- * Phase 2: when ZERNIO_API_KEY + account IDs are set, post the carousel via
- * Zernio. That call is intentionally NOT implemented until it can be tested
- * against real accounts.
+ * Publish an approved episode's carousel to Instagram via Zernio.
+ *
+ *   npm run publish <slug>            → creates a DRAFT post in Zernio (default; safe)
+ *   npm run publish <slug> -- --now   → publishes immediately
+ *
+ * TikTok is not wired (no connected account). Add a "tiktok" block to
+ * config/publish.json + a platform loop here once it exists.
  */
 
-const FORMAT = (process.argv.find((a) => a === "4x5" || a === "9x16") ?? "4x5") as "4x5" | "9x16";
+interface PublishConfig {
+  instagram: { accountId: string; handle: string; format: "4x5" | "9x16" };
+}
+
+const MODE: PublishMode = process.argv.includes("--now") ? "now" : "draft";
 
 async function main() {
   loadEnv();
+  requireEnv("ZERNIO_API_KEY", "Create one in the Zernio dashboard → API Keys. Var: ZERNIO_API_KEY");
   const episodeDir = resolveEpisodeDir(process.argv[2]);
   const story = loadStory(episodeDir);
 
@@ -22,50 +31,68 @@ async function main() {
   const status = existsSync(statusPath)
     ? (JSON.parse(readFileSync(statusPath, "utf8")) as Status)
     : null;
-  if (status?.status !== "approved") {
+  if (status?.status !== "approved" && status?.status !== "posted") {
     throw new Error(
       `Episode "${story.slug}" is not approved (status: ${status?.status ?? "none"}). ` +
         `Run  npm run approve ${story.slug}  first.`,
     );
   }
 
-  // Assemble ordered upload bundle
-  const uploadDir = join(episodeDir, "upload");
-  mkdirSync(uploadDir, { recursive: true });
-  const srcDir = join(episodeDir, "panels", `final-${FORMAT}`);
+  const cfg = JSON.parse(
+    readFileSync(join(REPO_ROOT, "config", "publish.json"), "utf8"),
+  ) as PublishConfig;
+  const { accountId, format } = cfg.instagram;
+
+  if (story.panels.length < 2 || story.panels.length > 10) {
+    throw new Error(`Instagram carousels need 2-10 images (episode has ${story.panels.length}).`);
+  }
+
+  const srcDir = join(episodeDir, "panels", `final-${format}`);
+  const captionPath = join(episodeDir, "caption.txt");
   if (!existsSync(join(srcDir, panelFile(story.panels[0]!.n)))) {
-    throw new Error(`No composed panels in ${srcDir}. Run  npm run compose ${story.slug}  first.`);
+    throw new Error(`No composed ${format} panels in ${srcDir}. Run  npm run compose ${story.slug}.`);
   }
-  story.panels.forEach((p, i) => {
-    copyFileSync(
-      join(srcDir, panelFile(p.n)),
-      join(uploadDir, `${String(i + 1).padStart(2, "0")}.png`),
-    );
+  if (!existsSync(captionPath)) {
+    throw new Error(`No caption.txt. Run  npm run review ${story.slug}.`);
+  }
+
+  console.log(`\nGhostwriter · publish · ${story.slug} → instagram/@${cfg.instagram.handle} (${format}, ${MODE})\n`);
+
+  const mediaUrls: string[] = [];
+  for (const p of story.panels) {
+    const jpg = await sharp(readFileSync(join(srcDir, panelFile(p.n))))
+      .jpeg({ quality: 90, chromaSubsampling: "4:4:4" })
+      .toBuffer();
+    const url = await uploadImage(jpg, `${story.slug}-${panelFile(p.n).replace(".png", ".jpg")}`);
+    mediaUrls.push(url);
+    console.log(`• uploaded panel ${p.n}  (${(jpg.length / 1024).toFixed(0)} KB)`);
+  }
+
+  const content = readFileSync(captionPath, "utf8").trim();
+  const created = await createPost({
+    content,
+    mediaUrls,
+    platform: "instagram",
+    accountId,
+    mode: MODE,
   });
-  copyFileSync(join(episodeDir, "caption.txt"), join(uploadDir, "caption.txt"));
+  const postId = created.post?._id ?? created._id ?? "(id not returned)";
 
-  const key = process.env.ZERNIO_API_KEY;
-  const tiktok = process.env.ZERNIO_TIKTOK_ACCOUNT_ID;
-  const ig = process.env.ZERNIO_IG_ACCOUNT_ID;
-
-  console.log(`\nGhostwriter · publish · ${story.slug} (${FORMAT})\n`);
-  console.log(`✓ upload bundle ready: ${uploadDir}`);
-  console.log(`  ${story.panels.length} slides + caption.txt\n`);
-
-  if (!key || !tiktok || !ig) {
-    console.log("⏸  Zernio not configured — nothing posted (expected for now).");
-    console.log("   Accounts don't exist yet. When they do:");
-    console.log("   1. create the TikTok + IG handles, connect them in Zernio");
-    console.log("   2. put ZERNIO_API_KEY / ZERNIO_TIKTOK_ACCOUNT_ID / ZERNIO_IG_ACCOUNT_ID in .env");
-    console.log("   3. implement the Zernio carousel call in src/publish.ts (Phase 2)\n");
-    console.log(`   Meanwhile, post ${uploadDir} manually in the TikTok / Instagram apps.\n`);
-    return;
+  if (MODE === "now") {
+    const st: Status = {
+      status: "posted",
+      created: status?.created ?? new Date().toISOString(),
+      approvedAt: status?.approvedAt,
+      postedAt: new Date().toISOString(),
+    };
+    writeFileSync(statusPath, JSON.stringify(st, null, 2) + "\n");
+    console.log(`\n✓ published to Instagram. post id: ${postId}`);
+    console.log(`  verify: open the @${cfg.instagram.handle} profile and hard-refresh.\n`);
+  } else {
+    console.log(`\n✓ draft created in Zernio. post id: ${postId}`);
+    console.log(`  review it in the Zernio dashboard, then publish there —`);
+    console.log(`  or run:  npm run publish ${story.slug} -- --now\n`);
   }
-
-  throw new Error(
-    "Zernio credentials are set but the Phase 2 posting call isn't implemented yet. " +
-      "Implement it here, then re-run.",
-  );
 }
 
 main().catch((err) => {

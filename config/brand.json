@@ -1,7 +1,7 @@
 {
-  "_comment": "Placeholder brand identity. Update handle + displayName once the TikTok/IG accounts exist, then re-run `npm run compose` for any episode to refresh the lockup.",
-  "handle": "@ghostwriter.comics",
-  "displayName": "GHOSTWRITER",
+  "_comment": "Test-account branding. Change handle + displayName + header.text when the real public account exists, then re-run `npm run compose` for any episode to refresh the lockup.",
+  "handle": "@bennysynthwork",
+  "displayName": "BENNYSYNTHWORK",
   "colors": {
     "ink": "#0E0E10",
     "paper": "#EDE7DB",
@@ -11,7 +11,7 @@
   },
   "header": {
     "show": true,
-    "text": "GHOSTWRITER",
+    "text": "BENNYSYNTHWORK",
     "position": "top-left"
   },
   "pageCounter": {
