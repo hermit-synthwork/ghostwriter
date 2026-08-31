@@ -1,7 +1,7 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { GoogleGenAI } from "@google/genai";
-import { loadEnv, requireEnv, REPO_ROOT } from "./lib/env.ts";
+import { loadEnv, REPO_ROOT } from "./lib/env.ts";
 
 /**
  * Gemini image model. Verified available on this API (Feb 2026):

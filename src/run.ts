@@ -1,14 +1,12 @@
-import { readdirSync, existsSync } from "node:fs";
+import { readdirSync, existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { listTenants, loadTenant, isDue, type TenantConfig } from "./lib/tenant.ts";
-import { episodeDirFor, EPISODES_DIR, loadStory, type Story } from "./lib/story.ts";
+import { listTenants, loadTenant, isDue, localParts, type TenantConfig } from "./lib/tenant.ts";
+import { episodeDirFor, EPISODES_DIR, loadStory, type Status } from "./lib/story.ts";
 import { writeStory } from "./write-story.ts";
 import { generateArt } from "./engine/art.ts";
 import { composeEpisode } from "./engine/compose.ts";
 import { writeReviewBundle } from "./engine/review.ts";
 import { publishEpisode } from "./engine/publish.ts";
-import { localParts } from "./lib/tenant.ts";
-import { writeFileSync, mkdirSync } from "node:fs";
 
 export interface RunPlanItem { tenantId: string; genre: "funny" | "horror" }
 
@@ -44,35 +42,56 @@ export async function runDueTenants(opts: {
     ? tenants.map((t) => ({ tenantId: t.id, genre: (t.genres !== "both" ? t.genres : "horror") as "funny" | "horror" }))
     : resolveRunPlan(tenants, now);
 
+  let failed = false;
   for (const item of plan) {
-    const t = loadTenant(item.tenantId);
-    const meta = lastEpisodeMeta(t.id);
-    const story = await writeStory({ genre: item.genre, niche: t.niche, styleKey: t.styleKey, priorTitles: meta.titles });
-    const date = localParts(now, t.cadence.tz).date;
-    const dir = episodeDirFor(t.id, date, story.slug);
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, "story.json"), JSON.stringify(story, null, 2) + "\n");
-    console.log(`\n[${t.id}] ${story.genre} · ${story.title}  → ${dir}`);
+    try {
+      const t = loadTenant(item.tenantId);
+      const meta = lastEpisodeMeta(t.id);
+      const story = await writeStory({ tenantId: t.id, genre: item.genre, niche: t.niche, styleKey: t.styleKey, priorTitles: meta.titles });
+      const date = localParts(now, t.cadence.tz).date;
+      const dir = episodeDirFor(t.id, date, story.slug);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, "story.json"), JSON.stringify(story, null, 2) + "\n");
+      console.log(`\n[${t.id}] ${story.genre} · ${story.title}  → ${dir}`);
 
-    await generateArt(t, dir, story);
-    await composeEpisode(t, dir, story);
-    writeReviewBundle(dir, story);
+      await generateArt(t, dir, story);
+      await composeEpisode(t, dir, story);
+      writeReviewBundle(dir, story);
 
-    if (t.autonomy === "autonomous" && !opts.dry) {
-      const mode = opts.now_publish ? "now" : "draft";
-      const res = await publishEpisode(t, dir, story, mode);
-      console.log(`[${t.id}] ${mode}:`, res.map((r) => `${r.platform}=${r.postId}`).join(" "));
-    } else {
-      console.log(`[${t.id}] ready — autonomy=${t.autonomy}${opts.dry ? " (dry)" : ""}, not published`);
+      if (t.autonomy === "autonomous" && !opts.dry) {
+        // autonomy=autonomous IS the pre-approval — write the transition the
+        // human `npm run approve` step would otherwise make, so publishEpisode's
+        // approved/posted gate passes.
+        const statusPath = join(dir, "status.json");
+        const st = JSON.parse(readFileSync(statusPath, "utf8")) as Status;
+        st.status = "approved";
+        st.approvedAt = new Date().toISOString();
+        writeFileSync(statusPath, JSON.stringify(st, null, 2) + "\n");
+
+        const mode = opts.now_publish ? "now" : "draft";
+        const res = await publishEpisode(t, dir, story, mode);
+        console.log(`[${t.id}] ${mode}:`, res.map((r) => `${r.platform}=${r.postId}`).join(" "));
+      } else {
+        console.log(`[${t.id}] ready — autonomy=${t.autonomy}${opts.dry ? " (dry)" : ""}, not published`);
+      }
+    } catch (err) {
+      console.error(`[${item.tenantId}] FAILED: ${(err as Error).message}`);
+      failed = true;
     }
   }
   if (plan.length === 0) console.log("no tenants due");
+  if (failed) process.exitCode = 1;
 }
 
 // CLI: tsx src/run.ts [--tenant id] [--dry] [--now]
 if (process.argv[1]?.endsWith("run.ts")) {
   try {
-    const arg = (k: string) => { const i = process.argv.indexOf(`--${k}`); return i === -1 ? undefined : process.argv[i + 1]; };
+    const arg = (k: string) => {
+      const i = process.argv.indexOf(`--${k}`);
+      if (i === -1) return undefined;
+      const v = process.argv[i + 1];
+      return v && !v.startsWith("--") ? v : undefined;
+    };
     await runDueTenants({
       tenantId: arg("tenant"),
       dry: process.argv.includes("--dry"),

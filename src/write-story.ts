@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { loadEnv, requireEnv } from "./lib/env.ts";
 import { resolveStyle } from "./lib/style.ts";
 import { validateStory, type Story } from "./lib/story.ts";
+import { logUsage } from "./lib/usage.ts";
 
 const MODEL = "claude-sonnet-5";
 
@@ -33,6 +34,7 @@ Return exactly this shape (no markdown fence, no prose):
 bubble_pos = [x,y] fractions 0..1; keep important bubbles between y 0.18 and 0.78.`;
 
 export interface StoryInput {
+  tenantId: string;
   genre: "funny" | "horror";
   niche: string;
   styleKey: string;
@@ -58,31 +60,51 @@ export async function writeStory(input: StoryInput): Promise<Story> {
   const client = new Anthropic({ apiKey });
   const { system, user } = buildStoryMessages(input);
 
-  let lastErr: unknown;
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  for (let attempt = 1; ; attempt++) {
     const res = await client.messages.create({
-      model: MODEL, max_tokens: 4000, system,
+      model: MODEL,
+      max_tokens: 16000,
+      output_config: { effort: "low" },
+      system,
       messages: [{ role: "user", content: user }],
     });
+
+    // A refusal or a max_tokens truncation will recur on retry — fail loudly
+    // now instead of surfacing as an opaque "Unexpected end of JSON input".
+    if (res.stop_reason === "refusal") {
+      throw new Error(
+        `write-story refused by safety classifier (category: ${res.stop_details?.category ?? "unknown"})`,
+      );
+    }
+    if (res.stop_reason === "max_tokens") {
+      throw new Error("write-story response truncated — raise max_tokens");
+    }
+
     const text = res.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text).join("");
     try {
       const json = JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g, "").trim());
       json.styleKey = input.styleKey;
       json.niche = input.niche;
       validateStory(json as Story);
+      logUsage(input.tenantId, {
+        kind: "story_tokens",
+        qty: (res.usage.input_tokens ?? 0) + (res.usage.output_tokens ?? 0),
+        keyOwner: "platform",
+      });
       return json as Story;
     } catch (e) {
-      lastErr = e;
-      if (attempt === 2) throw new Error(`write-story: invalid story after 2 attempts: ${(e as Error).message}`);
+      if (attempt >= 2) {
+        throw new Error(`write-story: invalid story after 2 attempts: ${(e as Error).message}`);
+      }
     }
   }
-  throw lastErr as Error;
 }
 
 // CLI: tsx src/write-story.ts --genre horror --niche "..." --style graphic-novel-noir
 if (process.argv[1]?.endsWith("write-story.ts")) {
   const arg = (k: string) => { const i = process.argv.indexOf(`--${k}`); return i === -1 ? undefined : process.argv[i + 1]; };
   const story = await writeStory({
+    tenantId: "local",
     genre: (arg("genre") as "funny" | "horror") ?? "horror",
     niche: arg("niche") ?? "everyday life with a strange edge",
     styleKey: arg("style") ?? "graphic-novel-noir",

@@ -9,7 +9,7 @@ review gate.
 Run **`/ghostwriter`** in Claude Code (optionally `/ghostwriter horror` or
 `/ghostwriter funny`). One run:
 
-1. Claude writes an original 6–8 panel story + art direction + caption → `episodes/<date>-<slug>/story.json`
+1. Claude writes an original 6–8 panel story + art direction + caption → `episodes/local/<date>-<slug>/story.json`
 2. `npm run art` — generates the style ref (once), a per-episode character sheet, and each panel via Gemini, keeping one frozen house style
 3. `npm run compose` — composites narration boxes, speech bubbles, header, page counter and watermark; outputs `panels/final-4x5/` and `panels/final-9x16/`
 4. `npm run review` — writes `caption.txt` and `review.html`

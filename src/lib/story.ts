@@ -64,6 +64,8 @@ export function loadStory(episodeDir: string): Story {
 export function validateStory(s: Story): void {
   const problems: string[] = [];
   if (!s.slug) problems.push("missing slug");
+  if (s.slug && !/^[a-z0-9-]+$/.test(s.slug))
+    problems.push(`slug must be kebab-case [a-z0-9-] (got "${s.slug}")`);
   if (!s.genre) problems.push("missing genre");
   if (!Array.isArray(s.cast) || s.cast.length === 0) problems.push("empty cast");
   if (!Array.isArray(s.panels) || s.panels.length < 4 || s.panels.length > 10)
@@ -146,5 +148,8 @@ export function panelFile(n: number): string {
 }
 
 export function episodeDirFor(tenantId: string, date: string, slug: string): string {
+  for (const seg of [tenantId, slug]) {
+    if (!/^[A-Za-z0-9_-]+$/.test(seg)) throw new Error(`unsafe path segment: ${seg}`);
+  }
   return join(EPISODES_DIR, tenantId, `${date}-${slug}`);
 }

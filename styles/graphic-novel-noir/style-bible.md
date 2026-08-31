@@ -1,7 +1,7 @@
 # Ghostwriter house style (FROZEN)
 
 This description is prepended to every art-generation prompt. Change it only on a
-deliberate restyle, then delete `assets/style-ref.png` so it regenerates.
+deliberate restyle, then delete `styles/graphic-novel-noir/style-ref.png` so it regenerates.
 
 ## Medium & rendering
 

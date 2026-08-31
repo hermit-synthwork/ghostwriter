@@ -2,7 +2,7 @@ import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { EPISODES_DIR, listEpisodes, resolveEpisodeDir } from "../src/lib/story.ts";
+import { EPISODES_DIR, listEpisodes, resolveEpisodeDir, episodeDirFor } from "../src/lib/story.ts";
 
 const TENANT = "tfix";
 const EP = "2099-01-01-probe-slug";
@@ -50,4 +50,9 @@ test("resolveEpisodeDir resolves a full <tenant>/<episode> arg", () => {
 test("resolveEpisodeDir throws for an unknown slug", () => {
   seed();
   assert.throws(() => resolveEpisodeDir("no-such-slug-here"), /No episode matching/);
+});
+
+test("episodeDirFor rejects a path-traversal tenant/slug segment", () => {
+  assert.throws(() => episodeDirFor("../evil", "2099-01-01", "x"), /unsafe path segment/);
+  assert.throws(() => episodeDirFor("demo-a", "2099-01-01", "../../x"), /unsafe path segment/);
 });

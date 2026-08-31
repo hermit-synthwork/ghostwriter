@@ -20,6 +20,7 @@ export interface TenantConfig {
 }
 
 export function loadTenant(id: string): TenantConfig {
+  if (!/^[A-Za-z0-9_-]+$/.test(id)) throw new Error(`unsafe tenant id: ${id}`);
   const path = join(TENANTS_DIR, `${id}.json`);
   if (!existsSync(path)) throw new Error(`No tenant "${id}" at ${path}`);
   const t = JSON.parse(readFileSync(path, "utf8")) as TenantConfig;
@@ -54,7 +55,7 @@ export function loadLocalTenant(story: Story): TenantConfig {
 export function listTenants(): TenantConfig[] {
   if (!existsSync(TENANTS_DIR)) return [];
   return readdirSync(TENANTS_DIR)
-    .filter((f) => f.endsWith(".json"))
+    .filter((f) => f.endsWith(".json") && f !== "local.json")
     .map((f) => loadTenant(f.replace(/\.json$/, "")));
 }
 
