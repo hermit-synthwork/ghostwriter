@@ -12,9 +12,6 @@ import { loadEnv, requireEnv, REPO_ROOT } from "./lib/env.ts";
  */
 export const IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "gemini-3.1-flash-image";
 
-const KEY_HINT =
-  "Get a key at https://aistudio.google.com/apikey (free tier works). Var: GEMINI_API_KEY";
-
 export interface RefImage {
   data: Buffer;
   mimeType: string; // e.g. "image/png"
@@ -25,14 +22,22 @@ export interface GenResult {
   model: string;
 }
 
-let client: GoogleGenAI | null = null;
+export function resolveGeminiKey(explicit: string | undefined, env: string | undefined): string {
+  const k = (explicit ?? env ?? "").trim();
+  if (!k || k.includes("your-")) {
+    throw new Error(
+      "Missing credential: GEMINI_API_KEY\n" +
+      "  Get a key at https://aistudio.google.com/apikey (free tier works).\n" +
+      "  Add it to .env, or pass a tenant geminiKey.",
+    );
+  }
+  return k;
+}
 
-function getClient(): GoogleGenAI {
-  if (client) return client;
+function getClient(apiKey?: string): GoogleGenAI {
   loadEnv();
-  const apiKey = requireEnv("GEMINI_API_KEY", KEY_HINT);
-  client = new GoogleGenAI({ apiKey });
-  return client;
+  const key = resolveGeminiKey(apiKey, process.env.GEMINI_API_KEY);
+  return new GoogleGenAI({ apiKey: key });
 }
 
 /**
@@ -43,8 +48,9 @@ export async function generateImage(
   prompt: string,
   refs: RefImage[] = [],
   aspectRatio: "9:16" | "1:1" | "16:9" = "9:16",
+  apiKey?: string,
 ): Promise<GenResult> {
-  const ai = getClient();
+  const ai = getClient(apiKey);
   const parts: Record<string, unknown>[] = [
     ...refs.map((r) => ({
       inlineData: { data: r.data.toString("base64"), mimeType: r.mimeType },
