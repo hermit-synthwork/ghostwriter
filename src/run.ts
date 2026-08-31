@@ -1,6 +1,6 @@
 import { readdirSync, existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { listTenants, loadTenant, isDue, localParts, type TenantConfig } from "./lib/tenant.ts";
+import { isDue, localParts, type TenantConfig } from "./lib/tenant.ts";
 import { episodeDirFor, EPISODES_DIR, loadStory, type Status } from "./lib/story.ts";
 import { writeStory } from "./write-story.ts";
 import { generateArt } from "./engine/art.ts";
