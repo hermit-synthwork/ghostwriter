@@ -32,3 +32,25 @@ export function listTenants(): TenantConfig[] {
     .filter((f) => f.endsWith(".json"))
     .map((f) => loadTenant(f.replace(/\.json$/, "")));
 }
+
+export function localParts(now: Date, tz: string): { weekday: number; hhmm: string; date: string } {
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz, weekday: "short", hour: "2-digit", minute: "2-digit",
+    year: "numeric", month: "2-digit", day: "2-digit", hour12: false,
+  });
+  const p = Object.fromEntries(fmt.formatToParts(now).map((x) => [x.type, x.value]));
+  const weekdayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  return {
+    weekday: weekdayMap[p.weekday as string]!,
+    hhmm: `${p.hour}:${p.minute}`,
+    date: `${p.year}-${p.month}-${p.day}`,
+  };
+}
+
+export function isDue(t: TenantConfig, now: Date, lastEpisodeDate: string | null): boolean {
+  const { weekday, hhmm, date } = localParts(now, t.cadence.tz);
+  if (!t.cadence.days.includes(weekday)) return false;
+  if (hhmm < t.cadence.time) return false;
+  if (lastEpisodeDate === date) return false;
+  return true;
+}
