@@ -1,25 +1,39 @@
 ---
 name: ghostwriter
-description: Produce one Ghostwriter comic-carousel episode for TikTok/IG — an original funny or horror short story rendered as 6–8 illustrated comic panels in the frozen house style, plus caption and hashtags, ending at a local review gate. Use when the user runs /ghostwriter, says "new ghostwriter episode", "make a comic carousel", "draft a horror/funny comic story", or wants the next post for the comic account.
+description: The story spec for one Ghostwriter comic-carousel episode — an original funny or horror short story told in 6–8 illustrated comic panels in the frozen house style, plus caption and hashtags. This is the human-readable reference for what the headless engine's story prompt encodes. Use when the user runs /ghostwriter, says "new ghostwriter episode", "make a comic carousel", "draft a horror/funny comic story", or asks how a story is structured.
 ---
 
-# Ghostwriter — draft one episode
+# Ghostwriter — the episode spec
 
-Run this from the `ghostwriter` repo. One invocation produces a review-ready
-carousel; the user approves or tweaks before anything is published.
+Story generation is **DB-backed and headless**. The engine writes the story
+itself; this file is the reference for the shape it produces and the rules it
+follows.
 
-/ Optional argument: `funny` or `horror` forces the genre.
+## Generating an episode
 
-## Step 1 — pick the genre
+```bash
+npm run run -- --tenant <id> --dry
+```
 
-1. If the invocation arg is `funny` or `horror`, use it.
-2. Else read the most recent `episodes/local/*/story.json` (by folder date) and pick the
-   **opposite** of its `genre` to keep the feed varied.
-3. If there are no episodes yet, default to `horror`.
+One episode for that tenant: the engine writes an original story, generates the
+art (raw PNGs cached under `.cache/<episodeId>/`), composites the lettering,
+uploads the final panels to Vercel Blob, and inserts an `episode` row with
+`status='ready'`. `--dry` skips publishing. Drop `--dry` (autonomous tenants
+only) to also push a Zernio draft.
 
-## Step 2 — write the story
+Inspect the result with `npm run db:studio` (the `episode`, `usage_event`, and
+`run` tables). There is no local review bundle anymore — the human
+review/approve UI is sub-project C (the web app).
 
-Write an original, self-contained micro-story built for a swipe carousel:
+## Genre alternation
+
+The engine alternates genre against the tenant's recent episodes (last episode
+horror → next funny, and vice versa), unless the tenant is pinned to one genre.
+First episode for a tenant defaults to `horror`.
+
+## The story
+
+An original, self-contained micro-story built for a swipe carousel:
 
 - **6–8 panels.** Panel 1 is a hook (a striking image + a question the reader
   needs answered). The final panel lands the twist (horror) or the punchline
@@ -32,9 +46,9 @@ Write an original, self-contained micro-story built for a swipe carousel:
 
 ### story.json schema
 
-Write to `episodes/local/<YYYY-MM-DD>-<slug>/story.json` where `<slug>` is 2–4 kebab
-words from the title. `<YYYY-MM-DD>` is today. The `npm run` wrappers below take
-just the `<slug>` and resolve the directory themselves.
+The story object is persisted to the `episode.story_json` column by the engine —
+it is not written to a file by hand. `<slug>` is 2–4 kebab words from the title;
+`date` is the run date.
 
 ```jsonc
 {
@@ -79,7 +93,7 @@ Rules for the fields:
 - 6–12 `hashtags`: mix broad (`comics`, `storytime`) with niche
   (`liminalhorror`, `sliceoflifecomic`).
 
-### Safety checklist (must pass before saving)
+### Safety checklist (must pass)
 
 - Horror = dread, shadow, implication. **No** gore, wounds, blood pooling, body
   horror, or on-panel death detail.
@@ -91,59 +105,12 @@ Rules for the fields:
 
 If a beat needs one of these to work, rewrite the beat.
 
-## Step 3 — generate art
+## Consistency model
 
-```bash
-npm run art <slug>
-```
-
-- This needs `GEMINI_API_KEY` in `.env`. If the command reports it missing,
-  **stop and tell the user** exactly that — do not fake or skip art.
-- It generates `styles/<styleKey>/style-ref.png` once (reused forever), then a
-  per-episode `character-sheet.png`, then each panel into `panels/raw/`. Re-running
-  only fills in missing panels; delete a panel PNG to force a redo.
-- Rough cost: ~$0.30–0.80 for a full episode. Per-image usage is logged to
-  `usage/local.jsonl`.
-
-## Step 4 — compose + review
-
-```bash
-npm run compose <slug>
-npm run review <slug>
-```
-
-`compose` adds narration boxes, speech bubbles, header, page counter and
-watermark, and writes both `panels/final-9x16/` and `panels/final-4x5/`.
-`review` writes `caption.txt` and `review.html`.
-
-Then: **open the `review.html` that `npm run review` prints** for the user (it
-emits the exact `open ...` command), give them a 3–4 line summary (title,
-logline, panel count, the twist), and wait.
-
-## Step 5 — respond to the user's call
-
-- **Approve:** `npm run approve <slug>`, then publish via Zernio:
-  - `npm run publish <slug>` → creates a **draft** post per platform (safe
-    default; the user publishes from the Zernio dashboard/app).
-  - `npm run publish <slug> -- --now` → publishes immediately. Only run this on
-    the user's explicit instruction in the conversation — it's a public post.
-  - `npm run publish <slug> -- --only tiktok` → one platform.
-  - Targets come from `tenants/local.json` (its `publish` block): Instagram
-    `@bennysynthwork` (4:5 set) and TikTok `@ebiyasg` (9:16 set).
-  - Needs `ZERNIO_API_KEY` in `.env`. If missing, stop and tell the user.
-- **Copy tweak only:** edit `story.json` (narration/dialogue/caption), re-run
-  `npm run compose <slug>` then `npm run review <slug>`. No art cost.
-- **Art tweak:** edit the relevant `panels[].scene`/`camera`, delete that
-  `panels/raw/panel-NN.png`, re-run `npm run art <slug>` then compose + review.
-
-## Notes
-
-- Offline preview of lettering without spending on art:
-  `npm run compose <slug> -- --placeholder`.
-- Don't edit `styles/graphic-novel-noir/style-bible.md` casually — it's the
-  consistency anchor. If you do change it, delete
-  `styles/graphic-novel-noir/style-ref.png` so it regenerates.
-
-## Engine mode
-
-`/ghostwriter` and the `npm run art|compose|review|publish` wrappers work for one-off local episodes; they use `tenants/local.json` (gitignored, create your own) or fall back to a built-in default. For scheduled multi-tenant generation, see **`npm run run`** in the README ("Engine (multi-tenant)" section).
+- `styles/<key>/style-bible.md` — the frozen house style, prepended to every art
+  prompt. Don't edit it casually; if you do, delete
+  `styles/<key>/style-ref.png` so it regenerates.
+- `styles/<key>/style-ref.png` — committed once per style, passed as an image
+  reference on every panel.
+- per-episode character sheet — generated first, passed as a second reference so
+  the one-off cast stays consistent within the episode.

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Claude Code pipeline that writes original funny/horror short stories and renders them as illustrated comic-panel carousels (4:5 + 9:16) for TikTok/IG, with a local review gate.",
+  "description": "Claude Code pipeline that writes original funny/horror short stories and renders them as illustrated comic-panel carousels (4:5 + 9:16) for TikTok/IG.",
   "scripts": {
     "smoke": "tsx src/gemini.ts --smoke",
     "typecheck": "tsc --noEmit",

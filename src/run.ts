@@ -1,6 +1,6 @@
 import { rmSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { listActiveTenants, getTenant, isDue, localParts, type TenantConfig } from "./lib/tenant.ts";
+import { listActiveTenants, getTenant, isDue, type TenantConfig } from "./lib/tenant.ts";
 import { recentEpisodes, createEpisode, setEpisodeStatus } from "./db/episodes.ts";
 import { logUsage } from "./lib/usage.ts";
 import { writeStory } from "./write-story.ts";

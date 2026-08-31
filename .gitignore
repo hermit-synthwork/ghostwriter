@@ -3,12 +3,6 @@ node_modules/
 .env.local
 *.log
 .cache/
-episodes/*/*/panels/
-episodes/*/*/character-sheet.png
-episodes/*/*/review.html
-episodes/*/*/upload/
 assets/smoke.png
 .DS_Store
 .superpowers/
-usage/
-tenants/local.json

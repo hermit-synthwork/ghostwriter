@@ -1,6 +1,3 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-
 export type Genre = "funny" | "horror";
 
 export interface CastMember {
@@ -49,13 +46,6 @@ export interface Status {
   created: string;
   approvedAt?: string;
   postedAt?: string;
-}
-
-export function loadStory(episodeDir: string): Story {
-  const raw = readFileSync(join(episodeDir, "story.json"), "utf8");
-  const s = JSON.parse(raw) as Story;
-  validateStory(s);
-  return s;
 }
 
 export function validateStory(s: Story): void {
