@@ -17,6 +17,7 @@
     "story": "tsx src/write-story.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.122.0",
     "@fontsource/bangers": "^5.1.0",
     "@fontsource/comic-neue": "^5.1.0",
     "@google/genai": "^1.0.0",

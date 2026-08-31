@@ -43,6 +43,8 @@ export interface Story {
   panels: Panel[];
   caption: string;
   hashtags: string[];
+  styleKey?: string;
+  niche?: string;
 }
 
 export interface Status {
