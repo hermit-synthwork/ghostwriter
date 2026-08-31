@@ -1,0 +1,13 @@
+{
+  "id": "demo-b",
+  "displayName": "DESK GREMLINS",
+  "styleKey": "manga-ink",
+  "niche": "office life absurdities, petty revenge, meetings that should have been emails",
+  "genres": "funny",
+  "autonomy": "review_each",
+  "cadence": { "days": [2, 4, 6], "time": "09:00", "tz": "Asia/Singapore" },
+  "publish": {
+    "instagram": { "accountId": "6a911cf277555aae013ed010", "handle": "bennysynthwork", "format": "4x5" },
+    "tiktok": { "accountId": "6a94ee1077555aae012c1ca6", "handle": "ebiyasg", "format": "9x16" }
+  }
+}

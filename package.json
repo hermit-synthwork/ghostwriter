@@ -11,7 +11,10 @@
     "approve": "tsx src/approve.ts",
     "publish": "tsx src/publish.ts",
     "smoke": "tsx src/gemini.ts --smoke",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test test/**/*.test.ts",
+    "run": "tsx src/run.ts",
+    "story": "tsx src/write-story.ts"
   },
   "dependencies": {
     "@fontsource/bangers": "^5.1.0",

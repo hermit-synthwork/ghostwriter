@@ -1,0 +1,12 @@
+{
+  "id": "demo-a",
+  "displayName": "NIGHT SHIFT",
+  "styleKey": "graphic-novel-noir",
+  "niche": "unsettling things that happen to people working alone at night",
+  "genres": "horror",
+  "autonomy": "autonomous",
+  "cadence": { "days": [1, 3, 5], "time": "09:00", "tz": "Asia/Singapore" },
+  "publish": {
+    "instagram": { "accountId": "6a911cf277555aae013ed010", "handle": "bennysynthwork", "format": "4x5" }
+  }
+}
