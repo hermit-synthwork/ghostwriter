@@ -18,8 +18,8 @@ Run **`/ghostwriter`** in Claude Code (optionally `/ghostwriter horror` or
 
 ## Consistency model
 
-- `config/style-bible.md` — the frozen house style, prepended to every art prompt
-- `assets/style-ref.png` — generated once, passed as an image reference on every panel
+- `styles/<key>/style-bible.md` — the frozen house style for that style, prepended to every art prompt. There's a menu of styles: `graphic-novel-noir`, `manga-ink`, `retro-halftone`
+- `styles/<key>/style-ref.png` — generated once per style, passed as an image reference on every panel
 - per-episode character sheet — generated first, passed as a second reference so the one-off cast stays consistent within the episode
 
 ## Setup

@@ -116,8 +116,9 @@ npm run review <slug>
 watermark, and writes both `panels/final-9x16/` and `panels/final-4x5/`.
 `review` writes `caption.txt` and `review.html`.
 
-Then: **open `review.html`** for the user (`open episodes/<slug>/review.html`),
-give them a 3–4 line summary (title, logline, panel count, the twist), and wait.
+Then: **open the `review.html` that `npm run review` prints** for the user (it
+emits the exact `open ...` command), give them a 3–4 line summary (title,
+logline, panel count, the twist), and wait.
 
 ## Step 5 — respond to the user's call
 
