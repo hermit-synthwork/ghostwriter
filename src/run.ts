@@ -10,7 +10,7 @@ const EPISODES_DIR = join(REPO_ROOT, "episodes");
 import { writeStory } from "./write-story.ts";
 import { generateArt } from "./engine/art.ts";
 import { composeEpisode } from "./engine/compose.ts";
-import { writeReviewBundle } from "./engine/review.ts";
+import { finalizeEpisode } from "./engine/review.ts";
 import { publishEpisode } from "./engine/publish.ts";
 
 export interface RunPlanItem { tenantId: string; genre: "funny" | "horror" }
@@ -60,8 +60,8 @@ export async function runDueTenants(opts: {
       console.log(`\n[${t.id}] ${story.genre} · ${story.title}  → ${dir}`);
 
       await generateArt(t, dir, story);
-      await composeEpisode(t, dir, story);
-      writeReviewBundle(dir, story);
+      const panelUrls = await composeEpisode(t, dir, story);
+      await finalizeEpisode(dir, story, panelUrls);
 
       if (t.autonomy === "autonomous" && !opts.dry) {
         // autonomy=autonomous IS the pre-approval — write the transition the
