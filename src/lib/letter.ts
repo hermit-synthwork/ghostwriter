@@ -4,10 +4,16 @@ import satori, { type SatoriOptions } from "satori";
 import type { ReactNode } from "react";
 import { REPO_ROOT } from "./env.ts";
 import type { Panel, Story } from "./story.ts";
+import type { StyleTokens } from "./style.ts";
 
 type SatoriFont = SatoriOptions["fonts"][number];
 
-type Brand = typeof import("../../config/brand.json");
+/** Brand/colour info the overlay needs, resolved from a tenant + its style. */
+export interface OverlayBrand {
+  displayName: string;
+  handle: string;
+  tokens: StyleTokens;
+}
 
 /* ----------------------------- fonts ----------------------------- */
 
@@ -59,14 +65,14 @@ function el(
 
 const MARGIN = 48;
 
-function chip(text: string, extra: Record<string, unknown> = {}): El {
+function chip(text: string, tokens: StyleTokens, extra: Record<string, unknown> = {}): El {
   return el(
     "div",
     {
       style: {
         display: "flex",
-        background: "rgba(14,14,16,0.82)",
-        color: "#EDE7DB",
+        background: tokens.ink,
+        color: tokens.paper,
         fontFamily: "Bangers",
         fontSize: 30,
         letterSpacing: 1,
@@ -79,7 +85,14 @@ function chip(text: string, extra: Record<string, unknown> = {}): El {
   );
 }
 
-function narrationBox(text: string, atTop: boolean, w: number, h: number, bottomSafe: number): El {
+function narrationBox(
+  text: string,
+  atTop: boolean,
+  w: number,
+  h: number,
+  bottomSafe: number,
+  tokens: StyleTokens,
+): El {
   return el(
     "div",
     {
@@ -89,8 +102,8 @@ function narrationBox(text: string, atTop: boolean, w: number, h: number, bottom
         left: MARGIN,
         width: w - MARGIN * 2,
         [atTop ? "top" : "bottom"]: atTop ? 120 : bottomSafe + 20,
-        background: "rgba(14,14,16,0.92)",
-        borderLeft: "6px solid #7A2E2E",
+        background: tokens.ink,
+        borderLeft: `6px solid ${tokens.accent}`,
         borderRadius: 8,
         padding: "22px 30px",
       },
@@ -100,7 +113,7 @@ function narrationBox(text: string, atTop: boolean, w: number, h: number, bottom
       {
         style: {
           display: "flex",
-          color: "#EDE7DB",
+          color: tokens.paper,
           fontFamily: "Comic Neue",
           fontWeight: 700,
           fontSize: 39,
@@ -112,7 +125,15 @@ function narrationBox(text: string, atTop: boolean, w: number, h: number, bottom
   );
 }
 
-function speechBubble(speaker: string, text: string, x: number, y: number, w: number, h: number): El {
+function speechBubble(
+  speaker: string,
+  text: string,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  tokens: StyleTokens,
+): El {
   const maxW = Math.min(560, w - MARGIN * 2);
   // clamp so the bubble stays fully on-frame
   const cx = Math.max(MARGIN + maxW / 2, Math.min(w - MARGIN - maxW / 2, x * w));
@@ -138,7 +159,7 @@ function speechBubble(speaker: string, text: string, x: number, y: number, w: nu
               display: "flex",
               fontFamily: "Bangers",
               fontSize: 22,
-              color: "#7A2E2E",
+              color: tokens.accent,
               letterSpacing: 1,
               marginBottom: 4,
             },
@@ -151,14 +172,14 @@ function speechBubble(speaker: string, text: string, x: number, y: number, w: nu
       {
         style: {
           display: "flex",
-          background: "#EDE7DB",
-          border: "4px solid #0E0E10",
+          background: tokens.paper,
+          border: `4px solid ${tokens.ink}`,
           borderRadius: 26,
           padding: "16px 26px",
           fontFamily: "Bangers",
           fontSize: 40,
           lineHeight: 1.15,
-          color: "#0E0E10",
+          color: tokens.ink,
           letterSpacing: 0.5,
           textAlign: "center",
         },
@@ -173,62 +194,65 @@ function speechBubble(speaker: string, text: string, x: number, y: number, w: nu
 export async function renderOverlaySvg(
   panel: Panel,
   story: Story,
-  brand: Brand,
+  brand: OverlayBrand,
   size: { w: number; h: number },
 ): Promise<string> {
   const { w, h } = size;
+  const { tokens } = brand;
   const bottomSafe = 84; // reserved band for watermark + page counter
   const children: (El | null)[] = [];
 
-  if (brand.header?.show) {
-    children.push(
-      el(
-        "div",
-        { style: { display: "flex", position: "absolute", top: 36, left: MARGIN } },
-        chip(brand.header.text),
-      ),
-    );
-  }
+  // header — always rendered
+  children.push(
+    el(
+      "div",
+      { style: { display: "flex", position: "absolute", top: 36, left: MARGIN } },
+      chip(brand.displayName, tokens),
+    ),
+  );
 
   if (panel.narration) {
     const atTop = (panel.narration_pos ?? "top") === "top";
-    children.push(narrationBox(panel.narration, atTop, w, h, bottomSafe));
+    children.push(narrationBox(panel.narration, atTop, w, h, bottomSafe, tokens));
   }
 
   for (const d of panel.dialogue ?? []) {
     children.push(
-      speechBubble(d.speaker ?? "", d.text, d.bubble_pos[0], d.bubble_pos[1], w, h),
+      speechBubble(d.speaker ?? "", d.text, d.bubble_pos[0], d.bubble_pos[1], w, h, tokens),
     );
   }
 
-  if (brand.watermark?.show) {
-    children.push(
-      el(
-        "div",
-        {
-          style: {
-            display: "flex",
-            position: "absolute",
-            bottom: 28,
-            left: 0,
-            width: w,
-            justifyContent: "center",
-          },
+  // watermark — always rendered
+  children.push(
+    el(
+      "div",
+      {
+        style: {
+          display: "flex",
+          position: "absolute",
+          bottom: 28,
+          left: 0,
+          width: w,
+          justifyContent: "center",
         },
-        chip(brand.handle, { fontFamily: "Comic Neue", fontWeight: 700, fontSize: 24, opacity: 0.85 }),
-      ),
-    );
-  }
+      },
+      chip(brand.handle, tokens, {
+        fontFamily: "Comic Neue",
+        fontWeight: 700,
+        fontSize: 24,
+        opacity: 0.85,
+      }),
+    ),
+  );
 
-  if (brand.pageCounter?.show) {
-    children.push(
-      el(
-        "div",
-        { style: { display: "flex", position: "absolute", bottom: 28, right: MARGIN } },
-        chip(`${panel.n}/${story.panels.length}`),
-      ),
-    );
-  }
+  // page counter — always rendered
+  children.push(
+    el(
+      "div",
+      { style: { display: "flex", position: "absolute", bottom: 28, right: MARGIN } },
+      chip(`${panel.n}/${story.panels.length}`, tokens),
+    ),
+  );
 
   const root = el(
     "div",
@@ -243,5 +267,10 @@ export async function renderOverlaySvg(
     ...children,
   );
 
-  return satori(root as unknown as ReactNode, { width: w, height: h, fonts: fonts() });
+  return satori(root as unknown as ReactNode, {
+    width: w,
+    height: h,
+    fonts: fonts(),
+    embedFont: false,
+  });
 }

@@ -1,10 +1,19 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+/**
+ * Local single-episode compose CLI: `npm run compose [episode] [-- --placeholder]`.
+ * Thin wrapper around the reusable engine — synthesises a "local" tenant and
+ * delegates to composeEpisode. The scheduled multi-tenant runner (run.ts) calls
+ * composeEpisode directly, once per tenant.
+ *
+ * `--placeholder` keeps its offline path here (not in the engine): it fabricates
+ * flat-colour panels so lettering can be previewed with no art on disk.
+ */
+import { writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { REPO_ROOT } from "./lib/env.ts";
-import { resolveEpisodeDir, loadStory, panelFile } from "./lib/story.ts";
-import { normalize916, crop45, overlay, solid, W, H_916, H_45 } from "./lib/image.ts";
+import { resolveEpisodeDir, loadStory, panelFile, type Story } from "./lib/story.ts";
+import { loadLocalTenant } from "./lib/tenant.ts";
+import { crop45, overlay, solid, W, H_916, H_45 } from "./lib/image.ts";
 import { renderOverlaySvg } from "./lib/letter.ts";
-import brand from "../config/brand.json" with { type: "json" };
+import { composeEpisode, brandFor } from "./engine/compose.ts";
 
 const USE_PLACEHOLDER = process.argv.includes("--placeholder");
 
@@ -20,32 +29,20 @@ function placeholderColor(n: number): { r: number; g: number; b: number } {
   return palette[n % palette.length]!;
 }
 
-async function main() {
-  const episodeDir = resolveEpisodeDir(process.argv[2]);
-  const story = loadStory(episodeDir);
-  const rawDir = join(episodeDir, "panels", "raw");
+/** Offline preview: flat-colour bases + the real overlay, no raw panels needed. */
+async function composePlaceholder(episodeDir: string, story: Story): Promise<void> {
   const dir916 = join(episodeDir, "panels", "final-9x16");
   const dir45 = join(episodeDir, "panels", "final-4x5");
   mkdirSync(dir916, { recursive: true });
   mkdirSync(dir45, { recursive: true });
 
-  console.log(`\nGhostwriter · compose · ${story.slug} (${story.panels.length} panels)\n`);
+  const brand = brandFor(loadLocalTenant(story), story);
+  console.log(
+    `\nGhostwriter · compose (placeholder) · ${story.slug} (${story.panels.length} panels)\n`,
+  );
 
   for (const panel of story.panels) {
-    const rawPath = join(rawDir, panelFile(panel.n));
-    let base916: Buffer;
-
-    if (existsSync(rawPath)) {
-      base916 = await normalize916(readFileSync(rawPath));
-    } else if (USE_PLACEHOLDER) {
-      base916 = await solid(W, H_916, placeholderColor(panel.n));
-    } else {
-      throw new Error(
-        `Missing raw panel: ${rawPath}\n  Run  npm run art ${story.slug}  first, ` +
-          `or  npm run compose ${story.slug} -- --placeholder  to preview lettering offline.`,
-      );
-    }
-
+    const base916 = await solid(W, H_916, placeholderColor(panel.n));
     const svg916 = await renderOverlaySvg(panel, story, brand, { w: W, h: H_916 });
     writeFileSync(join(dir916, panelFile(panel.n)), await overlay(base916, svg916));
 
@@ -57,10 +54,20 @@ async function main() {
   }
 
   console.log(`\n✓ finals in ${dir916}\n           ${dir45}`);
-  console.log("  next: npm run review " + story.slug + "\n");
 }
 
-main().catch((err) => {
+try {
+  const episodeDir = resolveEpisodeDir(process.argv[2]);
+  const story = loadStory(episodeDir);
+
+  if (USE_PLACEHOLDER) {
+    await composePlaceholder(episodeDir, story);
+  } else {
+    await composeEpisode(loadLocalTenant(story), episodeDir, story);
+  }
+
+  console.log("  next: npm run review " + story.slug + "\n");
+} catch (err) {
   console.error("\n✗ " + (err as Error).message + "\n");
   process.exit(1);
-});
+}
