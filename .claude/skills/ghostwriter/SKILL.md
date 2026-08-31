@@ -25,6 +25,11 @@ Inspect the result with `npm run db:studio` (the `episode`, `usage_event`, and
 `run` tables). There is no local review bundle anymore — the human
 review/approve UI is sub-project C (the web app).
 
+`--tenant` is a debug/preview affordance, not the scheduled path: it runs that
+one tenant **regardless of its cadence** (no `isDue` gate) and, for a
+`genres: "both"` tenant, uses a fixed genre rather than alternating. The real
+schedule is the bare `npm run run` invoked by cron.
+
 ## Genre alternation
 
 The engine alternates genre against the tenant's recent episodes (last episode
@@ -108,9 +113,10 @@ If a beat needs one of these to work, rewrite the beat.
 ## Consistency model
 
 - `styles/<key>/style-bible.md` — the frozen house style, prepended to every art
-  prompt. Don't edit it casually; if you do, delete
-  `styles/<key>/style-ref.png` so it regenerates.
+  prompt. Don't edit it casually; if you do, regenerate that style's
+  `style-ref.png` out-of-band and commit the new file.
 - `styles/<key>/style-ref.png` — committed once per style, passed as an image
-  reference on every panel.
+  reference on every panel. **A missing `style-ref.png` now hard-fails every run
+  for that style** — the engine no longer auto-generates it.
 - per-episode character sheet — generated first, passed as a second reference so
   the one-off cast stays consistent within the episode.

@@ -56,7 +56,7 @@ export async function publishEpisode(
     throw new Error(`episode ${episodeId} is not approved (status: ${ep.status})`);
   }
 
-  const content = `${ep.caption}\n\n${ep.hashtags.join(" ")}`;
+  const content = `${ep.caption}\n\n${ep.hashtags.join(" ")}`.trim();
   const targets = selectTargets(tenant, only);
   const uploadCache = new Map<string, string[]>(); // format → Zernio media urls
   const results: { platform: string; handle: string; postId: string }[] = [];

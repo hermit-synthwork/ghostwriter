@@ -16,8 +16,20 @@ function styleHeader(styleBible: string): string {
   );
 }
 
-function pngRef(path: string): RefImage {
-  return { data: readFileSync(path), mimeType: "image/png" };
+/**
+ * Load a reference image, deriving its MIME type from the file's magic bytes
+ * rather than its extension. The committed `style-ref.png` files are JPEG bytes
+ * despite the `.png` name; the per-episode character sheet is a real PNG.
+ */
+function imageRef(path: string): RefImage {
+  const data = readFileSync(path);
+  const mimeType =
+    data[0] === 0xff && data[1] === 0xd8
+      ? "image/jpeg"
+      : data[0] === 0x89 && data[1] === 0x50
+        ? "image/png"
+        : "image/png";
+  return { data, mimeType };
 }
 
 /**
@@ -74,7 +86,7 @@ async function generateCharacterSheet(
       "a full-body pose and a head close-up, clearly separated, evenly lit, neutral expression. " +
       "Keep proportions and details identical to how they must appear in the story panels.\n\n" +
       `Cast:\n${cast}`,
-    [pngRef(style.refPath)],
+    [imageRef(style.refPath)],
     "16:9",
     undefined,
   );
@@ -93,7 +105,7 @@ async function generatePanels(
   style: ResolvedStyle,
   sheetPath: string,
 ): Promise<void> {
-  const refs = [pngRef(style.refPath), pngRef(sheetPath)];
+  const refs = [imageRef(style.refPath), imageRef(sheetPath)];
 
   for (const panel of story.panels) {
     const dest = join(rawDir, panelFile(panel.n));

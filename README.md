@@ -68,8 +68,9 @@ cp .env.example .env
 `DATABASE_URL_TEST` — a Neon test branch — is only needed for `npm test`.
 
 ```bash
-npm run db:migrate    # apply schema (idempotent)
-npm run db:seed       # seed tenants (idempotent)
+npm run db:migrate         # apply schema to DATABASE_URL (idempotent)
+npm run db:migrate:test    # apply schema to DATABASE_URL_TEST — do this once before `npm test`
+npm run db:seed            # seed tenants (idempotent)
 ```
 
 Deploying the VPS cron over from the old Phase-0 filesystem engine:

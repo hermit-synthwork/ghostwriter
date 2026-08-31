@@ -10,7 +10,7 @@ import { finalizeEpisode } from "./engine/review.ts";
 import { publishEpisode } from "./engine/publish.ts";
 import { db, closeDb } from "./db/client.ts";
 import { run as runTbl } from "./db/schema.ts";
-import { REPO_ROOT } from "./lib/env.ts";
+import { REPO_ROOT, loadEnv, requireEnv } from "./lib/env.ts";
 import { eq } from "drizzle-orm";
 
 export interface RunPlanItem { tenantId: string; genre: "funny" | "horror" }
@@ -66,52 +66,75 @@ export async function runDueTenants(opts: {
     ? tenants.map((t) => ({ tenantId: t.id, genre: (t.genres !== "both" ? t.genres : "horror") as "funny" | "horror" }))
     : await resolveRunPlan(tenants, now);
 
+  if (plan.length === 0) {
+    console.log("no tenants due");
+    return;
+  }
+
+  // Preflight every credential this run will need — fail here, before any DB
+  // write or paid API call, with one clear message (key-last workflow).
+  loadEnv();
+  requireEnv("ANTHROPIC_API_KEY", "console.anthropic.com → API keys. Var: ANTHROPIC_API_KEY");
+  requireEnv("GEMINI_API_KEY", "aistudio.google.com/apikey. Var: GEMINI_API_KEY");
+  requireEnv("BLOB_READ_WRITE_TOKEN", "Vercel dashboard → Storage → Blob → Tokens. Var: BLOB_READ_WRITE_TOKEN");
+  const willPublish = !opts.dry && tenants.some(
+    (t) => t.autonomy === "autonomous" && plan.some((p) => p.tenantId === t.id),
+  );
+  if (willPublish) requireEnv("ZERNIO_API_KEY", "Zernio dashboard → API Keys. Var: ZERNIO_API_KEY");
+
   const [runRow] = await db.insert(runTbl).values({ tenantsDue: plan.length }).returning({ id: runTbl.id });
   const runId = runRow!.id;
   let ok = 0, failed = 0;
   const errors: { tenantId: string; message: string }[] = [];
 
-  for (const item of plan) {
-    let episodeId: string | undefined;
-    try {
-      const t = await getTenant(item.tenantId);
-      const recent = await recentEpisodes(t.id, 5);
-      const { story, usageTokens } = await writeStory({
-        genre: item.genre, niche: t.niche, styleKey: t.styleKey,
-        priorTitles: recent.map((r) => r.title),
-      });
-      const ep = await createEpisode(t.id, story);
-      episodeId = ep.id;
-      await logUsage(t.id, { episodeId, kind: "story_tokens", qty: usageTokens, keyOwner: "platform" });
-      console.log(`\n[${t.id}] ${story.genre} · ${story.title} → episode ${episodeId}`);
+  try {
+    for (const item of plan) {
+      let episodeId: string | undefined;
+      try {
+        const t = await getTenant(item.tenantId);
+        const recent = await recentEpisodes(t.id, 5);
+        const { story, usageTokens } = await writeStory({
+          genre: item.genre, niche: t.niche, styleKey: t.styleKey,
+          priorTitles: recent.map((r) => r.title),
+        });
+        const ep = await createEpisode(t.id, story);
+        episodeId = ep.id;
+        await logUsage(t.id, { episodeId, kind: "story_tokens", qty: usageTokens, keyOwner: "platform" });
+        console.log(`\n[${t.id}] ${story.genre} · ${story.title} → episode ${episodeId}`);
 
-      await generateArt(t, episodeId, story);
-      const panelUrls = await composeEpisode(t, episodeId, ep.blobPrefix, story);
-      await finalizeEpisode(episodeId, story, panelUrls);
+        await generateArt(t, episodeId, story);
+        const panelUrls = await composeEpisode(t, episodeId, ep.blobPrefix, story);
+        await finalizeEpisode(episodeId, story, panelUrls);
 
-      if (t.autonomy === "autonomous" && !opts.dry) {
-        await setEpisodeStatus(episodeId, "approved", { approvedAt: new Date() });
-        const mode = opts.nowPublish ? "now" : "draft";
-        const res = await publishEpisode(t.id, episodeId, mode);
-        console.log(`[${t.id}] ${mode}: ${res.map((r) => `${r.platform}=${r.postId}`).join(" ")}`);
-      } else {
-        console.log(`[${t.id}] ready — autonomy=${t.autonomy}${opts.dry ? " (dry)" : ""}, not published`);
+        if (t.autonomy === "autonomous" && !opts.dry) {
+          await setEpisodeStatus(episodeId, "approved", { approvedAt: new Date() });
+          const mode = opts.nowPublish ? "now" : "draft";
+          const res = await publishEpisode(t.id, episodeId, mode);
+          console.log(`[${t.id}] ${mode}: ${res.map((r) => `${r.platform}=${r.postId}`).join(" ")}`);
+        } else {
+          console.log(`[${t.id}] ready — autonomy=${t.autonomy}${opts.dry ? " (dry)" : ""}, not published`);
+        }
+        pruneCache(episodeId);
+        ok++;
+      } catch (err) {
+        failed++;
+        const message = (err as Error).message;
+        errors.push({ tenantId: item.tenantId, message });
+        console.error(`[${item.tenantId}] FAILED: ${message}`);
+        if (episodeId) {
+          try {
+            await setEpisodeStatus(episodeId, "failed", { error: message });
+          } catch (e) {
+            console.error(`[${item.tenantId}] could not mark episode failed: ${(e as Error).message}`);
+          }
+        }
       }
-      pruneCache(episodeId);
-      ok++;
-    } catch (err) {
-      failed++;
-      const message = (err as Error).message;
-      errors.push({ tenantId: item.tenantId, message });
-      console.error(`[${item.tenantId}] FAILED: ${message}`);
-      if (episodeId) await setEpisodeStatus(episodeId, "failed", { error: message });
     }
+  } finally {
+    await db.update(runTbl).set({ finishedAt: new Date(), tenantsOk: ok, tenantsFailed: failed, errors })
+      .where(eq(runTbl.id, runId));
+    pruneCache();
   }
-
-  await db.update(runTbl).set({ finishedAt: new Date(), tenantsOk: ok, tenantsFailed: failed, errors })
-    .where(eq(runTbl.id, runId));
-  pruneCache();
-  if (plan.length === 0) console.log("no tenants due");
   if (failed > 0) process.exitCode = 1;
 }
 

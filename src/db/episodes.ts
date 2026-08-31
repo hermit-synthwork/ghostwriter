@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { desc, eq } from "drizzle-orm";
 import { db } from "./client.ts";
 import { episode, type EpisodeRow } from "./schema.ts";
@@ -7,13 +8,12 @@ export type EpisodeStatus = EpisodeRow["status"];
 export interface EpisodeMeta { date: string; genre: "funny" | "horror"; title: string }
 
 export async function createEpisode(tenantId: string, story: Story): Promise<{ id: string; blobPrefix: string }> {
-  const [row] = await db.insert(episode).values({
-    tenantId, slug: story.slug, genre: story.genre, title: story.title,
-    logline: story.logline, storyJson: story, blobPrefix: "pending",
-  }).returning({ id: episode.id });
-  const id = row!.id;
+  const id = randomUUID();
   const blobPrefix = `episodes/${tenantId}/${id}`;
-  await db.update(episode).set({ blobPrefix }).where(eq(episode.id, id));
+  await db.insert(episode).values({
+    id, tenantId, slug: story.slug, genre: story.genre, title: story.title,
+    logline: story.logline, storyJson: story, blobPrefix,
+  });
   return { id, blobPrefix };
 }
 

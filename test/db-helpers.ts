@@ -3,6 +3,13 @@ import postgres from "postgres";
 import { sql as raw } from "drizzle-orm";
 import * as schema from "../src/db/schema.ts";
 
+// NOTE: every DB test file shares this one Neon `test` branch and TRUNCATEs the
+// same tables in beforeEach, so they MUST run serially — `package.json`'s `test`
+// script pins `--test-concurrency=1`. Running `node --test test/db-*.test.ts`
+// directly (without that flag) fails with `duplicate key` / vanished-row errors.
+// The proper fix — per-file tenant-id namespacing + scoped resets so the files
+// can run concurrently — is deferred to sub-project B.
+
 process.loadEnvFile?.(new URL("../.env", import.meta.url).pathname);
 const url = process.env.DATABASE_URL_TEST;
 if (!url) throw new Error("DATABASE_URL_TEST is not set — DB tests need the Neon `test` branch");
