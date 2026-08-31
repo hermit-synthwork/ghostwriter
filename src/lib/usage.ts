@@ -17,6 +17,11 @@ const RATE_CENTS: Record<UsageKind, (qty: number) => number> = {
   post: () => 0,                            // Zernio is a monthly per-account fee, not per-post
 };
 
+function safeTenantId(id: string): string {
+  if (!/^[A-Za-z0-9_-]+$/.test(id)) throw new Error(`invalid tenantId: ${id}`);
+  return id;
+}
+
 export function estimateCents(kind: UsageKind, qty: number): number {
   return RATE_CENTS[kind](qty);
 }
@@ -32,11 +37,11 @@ export function logUsage(
     costCents: e.keyOwner === "tenant" && e.kind === "image" ? 0 : estimateCents(e.kind, e.qty),
     ...(e.note ? { note: e.note } : {}),
   };
-  appendFileSync(join(USAGE_DIR, `${tenantId}.jsonl`), JSON.stringify(row) + "\n");
+  appendFileSync(join(USAGE_DIR, `${safeTenantId(tenantId)}.jsonl`), JSON.stringify(row) + "\n");
 }
 
 export function readUsage(tenantId: string): UsageEvent[] {
-  const p = join(USAGE_DIR, `${tenantId}.jsonl`);
+  const p = join(USAGE_DIR, `${safeTenantId(tenantId)}.jsonl`);
   if (!existsSync(p)) return [];
   return readFileSync(p, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l) as UsageEvent);
 }

@@ -25,3 +25,7 @@ test("logUsage appends a JSONL line that readUsage parses back", () => {
   assert.equal(rows[0]!.costCents, 24);
   assert.equal(rows[1]!.kind, "post");
 });
+
+test("logUsage rejects a tenantId with path separators", () => {
+  assert.throws(() => logUsage("../evil", { kind: "post", qty: 1, keyOwner: "platform" }), /invalid tenantId/);
+});
