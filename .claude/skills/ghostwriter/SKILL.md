@@ -140,3 +140,7 @@ give them a 3–4 line summary (title, logline, panel count, the twist), and wai
   `npm run compose <slug> -- --placeholder`.
 - Don't edit `config/style-bible.md` casually — it's the consistency anchor.
   If you do change it, delete `assets/style-ref.png` so it regenerates.
+
+## Engine mode
+
+`/ghostwriter` and the `npm run art|compose|review|publish` wrappers work for one-off local episodes; they use `tenants/local.json` (gitignored, create your own) or fall back to a built-in default. For scheduled multi-tenant generation, see **`npm run run`** in the README ("Engine (multi-tenant)" section).

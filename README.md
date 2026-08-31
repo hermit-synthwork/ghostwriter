@@ -26,7 +26,51 @@ Run **`/ghostwriter`** in Claude Code (optionally `/ghostwriter horror` or
 
 ```bash
 npm install
-cp .env.example .env   # then paste your GEMINI_API_KEY
+cp .env.example .env   # then paste your GEMINI_API_KEY, ANTHROPIC_API_KEY, ZERNIO_API_KEY
 ```
 
-Only `npm run art` needs the key. `compose` / `review` run offline.
+Create `tenants/local.json` (gitignored; see Local Configuration below). The `/ghostwriter` skill and `npm run art|compose|review|publish` wrappers use it for one-off local episodes.
+
+## Local Configuration
+
+The single-tenant `tenants/local.json` is used by `/ghostwriter` and the CLI wrappers (`npm run art`, `npm run compose`, `npm run review`, `npm run publish`). It's gitignored — create your own:
+
+```json
+{
+  "id": "local",
+  "displayName": "GHOSTWRITER",
+  "styleKey": "graphic-novel-noir",
+  "niche": "everyday life with a strange edge",
+  "genres": "both",
+  "autonomy": "review_each",
+  "cadence": { "days": [1,3,5], "time": "09:00", "tz": "Asia/Singapore" },
+  "publish": {
+    "instagram": { "accountId": "6a911cf277555aae013ed010", "handle": "bennysynthwork", "format": "4x5" },
+    "tiktok": { "accountId": "6a94ee1077555aae012c1ca6", "handle": "ebiyasg", "format": "9x16" }
+  }
+}
+```
+
+## Engine (multi-tenant)
+
+The core engine runs a scheduled multi-tenant story generator. Configuration is per-tenant in `tenants/<id>.json` files (see examples in `tenants/demo-a.json` and `tenants/demo-b.json`).
+
+**Styles:** Three shipped style palettes are available:
+- `graphic-novel-noir` — noir palette, high contrast
+- `manga-ink` — black-and-white manga style
+- `retro-halftone` — retro halftone dots
+
+**Commands:**
+
+- `npm run run -- --tenant demo-a --dry` — single-tenant dry run; outputs panels, caption, and review bundle without publishing
+- `npm run run` — generate episodes for all tenants due according to their cadences
+
+**Cron scheduler:**
+
+Add this line to your crontab to run the engine every 15 minutes:
+
+```bash
+*/15 * * * * cd /path/to/ghostwriter && npm run run
+```
+
+**Environment:** The engine requires `ANTHROPIC_API_KEY` (in `.env`) alongside `GEMINI_API_KEY` and `ZERNIO_API_KEY`, since story generation is now headless.
