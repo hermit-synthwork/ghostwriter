@@ -1,8 +1,13 @@
 {
-  "_comment": "Non-secret publishing targets. The Zernio API key lives in .env (ZERNIO_API_KEY). IG carousels post the 4:5 master set. Add a 'tiktok' block (9x16) once that account is connected in Zernio.",
+  "_comment": "Publish targets. Zernio API key is in .env (ZERNIO_API_KEY); account ids are non-secret. IG carousels use the 4:5 masters, TikTok photo posts use 9:16. Remove a block to stop posting there.",
   "instagram": {
     "accountId": "6a911cf277555aae013ed010",
     "handle": "bennysynthwork",
     "format": "4x5"
+  },
+  "tiktok": {
+    "accountId": "6a94ee1077555aae012c1ca6",
+    "handle": "ebiyasg",
+    "format": "9x16"
   }
 }

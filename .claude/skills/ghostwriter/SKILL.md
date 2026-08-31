@@ -120,13 +120,14 @@ give them a 3–4 line summary (title, logline, panel count, the twist), and wai
 
 ## Step 5 — respond to the user's call
 
-- **Approve:** `npm run approve <slug>`, then publish to Instagram via Zernio:
-  - `npm run publish <slug>` → creates a **draft** post in Zernio (safe default;
-    the user publishes from the Zernio dashboard).
+- **Approve:** `npm run approve <slug>`, then publish via Zernio:
+  - `npm run publish <slug>` → creates a **draft** post per platform (safe
+    default; the user publishes from the Zernio dashboard/app).
   - `npm run publish <slug> -- --now` → publishes immediately. Only run this on
     the user's explicit instruction in the conversation — it's a public post.
-  - Posts the **4:5** master set to `@bennysynthwork` (`config/publish.json`).
-    TikTok isn't connected yet.
+  - `npm run publish <slug> -- --only tiktok` → one platform.
+  - Targets are in `config/publish.json`: Instagram `@bennysynthwork` (4:5 set)
+    and TikTok `@ebiyasg` (9:16 set).
   - Needs `ZERNIO_API_KEY` in `.env`. If missing, stop and tell the user.
 - **Copy tweak only:** edit `story.json` (narration/dialogue/caption), re-run
   `npm run compose <slug>` then `npm run review <slug>`. No art cost.
