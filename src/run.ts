@@ -1,7 +1,12 @@
 import { readdirSync, existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { isDue, localParts, type TenantConfig } from "./lib/tenant.ts";
-import { episodeDirFor, EPISODES_DIR, loadStory, type Status } from "./lib/story.ts";
+import { loadStory, type Status } from "./lib/story.ts";
+import { REPO_ROOT } from "./lib/env.ts";
+
+// Filesystem episode layout — retired from story.ts in "Engine → Neon" Task 4.
+// Kept local so resolveRunPlan still loads; src/run.ts is rewritten to read Neon in Task 10.
+const EPISODES_DIR = join(REPO_ROOT, "episodes");
 import { writeStory } from "./write-story.ts";
 import { generateArt } from "./engine/art.ts";
 import { composeEpisode } from "./engine/compose.ts";

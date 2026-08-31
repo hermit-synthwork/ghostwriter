@@ -1,8 +1,5 @@
-import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { REPO_ROOT } from "./env.ts";
-
-export const EPISODES_DIR = join(REPO_ROOT, "episodes");
 
 export type Genre = "funny" | "horror";
 
@@ -90,66 +87,6 @@ export function validateStory(s: Story): void {
   }
 }
 
-/**
- * Resolve an episode directory from a CLI arg. Accepts:
- *   - absolute or relative path to an episode folder
- *   - a slug or "<date>-<slug>" under episodes/
- *   - nothing → the most recently modified episode folder
- */
-export function resolveEpisodeDir(arg?: string): string {
-  if (arg) {
-    if (existsSync(arg) && statSync(arg).isDirectory()) return arg;
-    const direct = join(EPISODES_DIR, arg);
-    if (existsSync(direct)) return direct;
-    const match = listEpisodes().find((k) => {
-      const base = k.split(/[\\/]/).pop()!;
-      return base === arg || base.endsWith("-" + arg);
-    });
-    if (match) return join(EPISODES_DIR, match);
-    throw new Error(`No episode matching "${arg}" under ${EPISODES_DIR}`);
-  }
-  const all = listEpisodes();
-  if (all.length === 0) throw new Error(`No episodes yet under ${EPISODES_DIR}`);
-  const latest = all
-    .map((key) => ({ key, mtime: statSync(join(EPISODES_DIR, key)).mtimeMs }))
-    .sort((a, b) => b.mtime - a.mtime)[0]!;
-  return join(EPISODES_DIR, latest.key);
-}
-
-/**
- * Episode keys for the 2-level layout `episodes/<tenant>/<episode>/story.json`,
- * returned as `join(tenant, episode)` so `join(EPISODES_DIR, key)` still resolves.
- * Defensively also picks up any leftover flat `episodes/<x>/story.json` (old layout).
- */
-export function listEpisodes(): string[] {
-  if (!existsSync(EPISODES_DIR)) return [];
-  const keys: string[] = [];
-  for (const tenant of readdirSync(EPISODES_DIR)) {
-    const tenantPath = join(EPISODES_DIR, tenant);
-    if (!statSync(tenantPath).isDirectory()) continue;
-    // old flat layout: episodes/<x>/story.json
-    if (existsSync(join(tenantPath, "story.json"))) {
-      keys.push(tenant);
-      continue;
-    }
-    // current layout: episodes/<tenant>/<episode>/story.json
-    for (const ep of readdirSync(tenantPath)) {
-      const epPath = join(tenantPath, ep);
-      if (statSync(epPath).isDirectory() && existsSync(join(epPath, "story.json"))) {
-        keys.push(join(tenant, ep));
-      }
-    }
-  }
-  return keys;
-}
-
 export function panelFile(n: number): string {
   return `panel-${String(n).padStart(2, "0")}.png`;
-}
-
-export function episodeDirFor(tenantId: string, date: string, slug: string): string {
-  for (const seg of [tenantId, slug]) {
-    if (!/^[A-Za-z0-9_-]+$/.test(seg)) throw new Error(`unsafe path segment: ${seg}`);
-  }
-  return join(EPISODES_DIR, tenantId, `${date}-${slug}`);
 }
