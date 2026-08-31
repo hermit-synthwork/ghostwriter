@@ -1,9 +1,10 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { panelFile, type Story, type Panel } from "../lib/story.ts";
 import { resolveStyle, type ResolvedStyle } from "../lib/style.ts";
 import { generateImage, type RefImage } from "../gemini.ts";
 import { logUsage } from "../lib/usage.ts";
+import { REPO_ROOT } from "../lib/env.ts";
 import type { TenantConfig } from "../lib/tenant.ts";
 
 /** House-style preamble prepended to the style-ref and character-sheet prompts. */
@@ -17,10 +18,6 @@ function styleHeader(styleBible: string): string {
 
 function pngRef(path: string): RefImage {
   return { data: readFileSync(path), mimeType: "image/png" };
-}
-
-function keyOwner(tenant: TenantConfig): "platform" | "tenant" {
-  return tenant.geminiKey ? "tenant" : "platform";
 }
 
 /**
@@ -46,31 +43,24 @@ export function buildPanelPrompt(styleBible: string, story: Story, panel: Panel)
   );
 }
 
-/** Generate the one-time house-style key-art reference for this style, if missing. */
-async function ensureStyleRef(tenant: TenantConfig, style: ResolvedStyle): Promise<void> {
-  if (style.hasRef) return;
-  console.log(`• style-ref for "${style.key}" missing — generating house-style key art (one time)`);
-  const { png } = await generateImage(
-    styleHeader(style.bible) +
-      "\n\nSubject for this reference frame: an empty city bus-stop bench at dusk, " +
-      "one flickering streetlight, long shadows. Establish palette, linework, halftone, border.",
-    [],
-    "9:16",
-    tenant.geminiKey,
-  );
-  mkdirSync(dirname(style.refPath), { recursive: true });
-  writeFileSync(style.refPath, png);
-  logUsage(tenant.id, { kind: "image", qty: 1, keyOwner: keyOwner(tenant) });
+/** Require a committed house-style key-art reference for this style. */
+function ensureStyleRef(style: ResolvedStyle): void {
+  if (!style.hasRef) {
+    throw new Error(
+      `style "${style.key}" has no committed style-ref.png — pre-generate and commit it`,
+    );
+  }
 }
 
 /** Generate the character model sheet for this episode. Returns its path. */
 async function generateCharacterSheet(
   tenant: TenantConfig,
-  episodeDir: string,
+  episodeId: string,
+  rawDir: string,
   story: Story,
   style: ResolvedStyle,
 ): Promise<string> {
-  const out = join(episodeDir, "character-sheet.png");
+  const out = join(rawDir, "character-sheet.png");
   const cast = story.cast
     .map(
       (c) =>
@@ -86,24 +76,23 @@ async function generateCharacterSheet(
       `Cast:\n${cast}`,
     [pngRef(style.refPath)],
     "16:9",
-    tenant.geminiKey,
+    undefined,
   );
-  mkdirSync(episodeDir, { recursive: true });
+  mkdirSync(rawDir, { recursive: true });
   writeFileSync(out, png);
-  logUsage(tenant.id, { kind: "image", qty: 1, keyOwner: keyOwner(tenant) });
+  await logUsage(tenant.id, { episodeId, kind: "image", qty: 1, keyOwner: "platform" });
   return out;
 }
 
 /** Generate every raw panel image for the episode (skips ones already on disk). */
 async function generatePanels(
   tenant: TenantConfig,
-  episodeDir: string,
+  episodeId: string,
+  rawDir: string,
   story: Story,
   style: ResolvedStyle,
   sheetPath: string,
 ): Promise<void> {
-  const rawDir = join(episodeDir, "panels", "raw");
-  mkdirSync(rawDir, { recursive: true });
   const refs = [pngRef(style.refPath), pngRef(sheetPath)];
 
   for (const panel of story.panels) {
@@ -114,21 +103,23 @@ async function generatePanels(
     }
     const prompt = buildPanelPrompt(style.bible, story, panel);
     console.log(`• panel ${panel.n}/${story.panels.length}: generating`);
-    const { png } = await generateImage(prompt, refs, "9:16", tenant.geminiKey);
+    const { png } = await generateImage(prompt, refs, "9:16", undefined);
     writeFileSync(dest, png);
-    logUsage(tenant.id, { kind: "image", qty: 1, keyOwner: keyOwner(tenant) });
+    await logUsage(tenant.id, { episodeId, kind: "image", qty: 1, keyOwner: "platform" });
   }
 }
 
 /**
  * Render all art for one episode of one tenant: the per-style key-art reference
- * (once per style), the episode character sheet, and every raw panel.
+ * (must be committed), the episode character sheet, and every raw panel.
  * Style resolves from the story override first, then the tenant default.
- * Usage is logged to usage/<tenant>.jsonl after each successful image.
+ * Raw panels and the character sheet are transient — they land in
+ * `.cache/<episodeId>/` and are not committed or uploaded to blob storage.
+ * Usage is logged to the DB after each successful image.
  */
 export async function generateArt(
   tenant: TenantConfig,
-  episodeDir: string,
+  episodeId: string,
   story: Story,
 ): Promise<void> {
   const style = resolveStyle(story.styleKey ?? tenant.styleKey);
@@ -136,9 +127,12 @@ export async function generateArt(
     `\nGhostwriter · art · ${story.slug} (${story.genre}, ${story.panels.length} panels, style=${style.key})\n`,
   );
 
-  await ensureStyleRef(tenant, style);
-  const sheet = await generateCharacterSheet(tenant, episodeDir, story, style);
-  await generatePanels(tenant, episodeDir, story, style, sheet);
+  const rawDir = join(REPO_ROOT, ".cache", episodeId);
+  mkdirSync(rawDir, { recursive: true });
 
-  console.log(`\n✓ raw panels in ${join(episodeDir, "panels", "raw")}`);
+  ensureStyleRef(style);
+  const sheet = await generateCharacterSheet(tenant, episodeId, rawDir, story, style);
+  await generatePanels(tenant, episodeId, rawDir, story, style, sheet);
+
+  console.log(`\n✓ raw panels in ${rawDir}`);
 }
