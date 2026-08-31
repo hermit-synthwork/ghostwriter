@@ -267,10 +267,5 @@ export async function renderOverlaySvg(
     ...children,
   );
 
-  return satori(root as unknown as ReactNode, {
-    width: w,
-    height: h,
-    fonts: fonts(),
-    embedFont: false,
-  });
+  return satori(root as unknown as ReactNode, { width: w, height: h, fonts: fonts() });
 }
