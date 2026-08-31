@@ -15,17 +15,23 @@ import { loadEnv } from "./lib/env.ts";
  */
 
 loadEnv();
-const episodeDir = resolveEpisodeDir(process.argv[2]);
-const story = loadStory(episodeDir);
-const mode = process.argv.includes("--now") ? "now" : "draft";
-const only = process.argv.includes("--only") ? process.argv[process.argv.indexOf("--only") + 1] : null;
 
-const tenant = loadLocalTenant(story);
-if (Object.keys(tenant.publish).length === 0) {
-  throw new Error(
-    'No publish targets — create tenants/local.json with a "publish" block (see README).',
-  );
+try {
+  const episodeDir = resolveEpisodeDir(process.argv[2]);
+  const story = loadStory(episodeDir);
+  const mode = process.argv.includes("--now") ? "now" : "draft";
+  const only = process.argv.includes("--only") ? process.argv[process.argv.indexOf("--only") + 1] : null;
+
+  const tenant = loadLocalTenant(story);
+  if (Object.keys(tenant.publish).length === 0) {
+    throw new Error(
+      'No publish targets — create tenants/local.json with a "publish" block (see README).',
+    );
+  }
+
+  const res = await publishEpisode(tenant, episodeDir, story, mode, only);
+  console.log(res);
+} catch (err) {
+  console.error("\n✗ " + (err as Error).message + "\n");
+  process.exit(1);
 }
-
-const res = await publishEpisode(tenant, episodeDir, story, mode, only);
-console.log(res);
