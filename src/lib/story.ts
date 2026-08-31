@@ -122,3 +122,7 @@ export function listEpisodes(): string[] {
 export function panelFile(n: number): string {
   return `panel-${String(n).padStart(2, "0")}.png`;
 }
+
+export function episodeDirFor(tenantId: string, date: string, slug: string): string {
+  return join(EPISODES_DIR, tenantId, `${date}-${slug}`);
+}

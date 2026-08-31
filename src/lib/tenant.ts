@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { REPO_ROOT } from "./env.ts";
+import type { Story } from "./story.ts";
 
 export const TENANTS_DIR = join(REPO_ROOT, "tenants");
 
@@ -24,6 +25,30 @@ export function loadTenant(id: string): TenantConfig {
   const t = JSON.parse(readFileSync(path, "utf8")) as TenantConfig;
   if (t.id !== id) throw new Error(`Tenant file ${id}.json has mismatched id "${t.id}"`);
   return t;
+}
+
+/**
+ * Synthesise a TenantConfig for local single-episode dev (`npm run art`).
+ * Reads `tenants/local.json` if present (merged over the defaults so a partial
+ * file works), otherwise returns a built-in default. `id: "local"` is already
+ * filesystem-safe, so no sanitising is needed.
+ */
+export function loadLocalTenant(story: Story): TenantConfig {
+  const defaults: TenantConfig = {
+    id: "local",
+    displayName: "GHOSTWRITER",
+    styleKey: story.styleKey ?? "graphic-novel-noir",
+    niche: "everyday life with a strange edge",
+    genres: "both",
+    autonomy: "review_each",
+    cadence: { days: [1, 3, 5], time: "09:00", tz: "Asia/Singapore" },
+    publish: {},
+    geminiKey: undefined,
+  };
+  const path = join(TENANTS_DIR, "local.json");
+  if (!existsSync(path)) return defaults;
+  const override = JSON.parse(readFileSync(path, "utf8")) as Partial<TenantConfig>;
+  return { ...defaults, ...override, id: "local" };
 }
 
 export function listTenants(): TenantConfig[] {
