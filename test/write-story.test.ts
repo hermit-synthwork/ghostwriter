@@ -4,7 +4,6 @@ import { buildStoryMessages } from "../src/write-story.ts";
 
 test("buildStoryMessages embeds genre, niche, the style bible, and the JSON schema", () => {
   const { system, user } = buildStoryMessages({
-    tenantId: "t",
     genre: "horror",
     niche: "night shift workers",
     styleKey: "graphic-novel-noir",

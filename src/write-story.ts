@@ -2,7 +2,6 @@ import Anthropic from "@anthropic-ai/sdk";
 import { loadEnv, requireEnv } from "./lib/env.ts";
 import { resolveStyle } from "./lib/style.ts";
 import { validateStory, type Story } from "./lib/story.ts";
-import { logUsage } from "./lib/usage.ts";
 
 const MODEL = "claude-sonnet-5";
 
@@ -34,7 +33,6 @@ Return exactly this shape (no markdown fence, no prose):
 bubble_pos = [x,y] fractions 0..1; keep important bubbles between y 0.18 and 0.78.`;
 
 export interface StoryInput {
-  tenantId: string;
   genre: "funny" | "horror";
   niche: string;
   styleKey: string;
@@ -54,7 +52,7 @@ export function buildStoryMessages(input: StoryInput): { system: string; user: s
   return { system: SYSTEM, user };
 }
 
-export async function writeStory(input: StoryInput): Promise<Story> {
+export async function writeStory(input: StoryInput): Promise<{ story: Story; usageTokens: number }> {
   loadEnv();
   const apiKey = requireEnv("ANTHROPIC_API_KEY", "console.anthropic.com → API keys. Var: ANTHROPIC_API_KEY");
   const client = new Anthropic({ apiKey });
@@ -86,12 +84,8 @@ export async function writeStory(input: StoryInput): Promise<Story> {
       json.styleKey = input.styleKey;
       json.niche = input.niche;
       validateStory(json as Story);
-      logUsage(input.tenantId, {
-        kind: "story_tokens",
-        qty: (res.usage.input_tokens ?? 0) + (res.usage.output_tokens ?? 0),
-        keyOwner: "platform",
-      });
-      return json as Story;
+      const usageTokens = (res.usage.input_tokens ?? 0) + (res.usage.output_tokens ?? 0);
+      return { story: json as Story, usageTokens };
     } catch (e) {
       if (attempt >= 2) {
         throw new Error(`write-story: invalid story after 2 attempts: ${(e as Error).message}`);
@@ -103,8 +97,7 @@ export async function writeStory(input: StoryInput): Promise<Story> {
 // CLI: tsx src/write-story.ts --genre horror --niche "..." --style graphic-novel-noir
 if (process.argv[1]?.endsWith("write-story.ts")) {
   const arg = (k: string) => { const i = process.argv.indexOf(`--${k}`); return i === -1 ? undefined : process.argv[i + 1]; };
-  const story = await writeStory({
-    tenantId: "local",
+  const { story } = await writeStory({
     genre: (arg("genre") as "funny" | "horror") ?? "horror",
     niche: arg("niche") ?? "everyday life with a strange edge",
     styleKey: arg("style") ?? "graphic-novel-noir",
