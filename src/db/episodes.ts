@@ -17,7 +17,19 @@ export async function createEpisode(tenantId: string, story: Story): Promise<{ i
   return { id, blobPrefix };
 }
 
-export async function setEpisodeStatus(id: string, status: EpisodeStatus, patch: Record<string, unknown> = {}): Promise<void> {
+export type EpisodePatch = Partial<{
+  caption: string;
+  hashtags: string[];
+  storyJson: unknown;
+  panelUrls: { "4x5": string[]; "9x16": string[] };
+  scheduledFor: Date;
+  posts: { platform: string; handle: string; postId: string }[];
+  error: string;
+  approvedAt: Date;
+  postedAt: Date;
+}>;
+
+export async function setEpisodeStatus(id: string, status: EpisodeStatus, patch: EpisodePatch = {}): Promise<void> {
   await db.update(episode).set({ status, ...patch }).where(eq(episode.id, id));
 }
 
