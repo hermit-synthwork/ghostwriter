@@ -13,7 +13,7 @@ carousel; the user approves or tweaks before anything is published.
 ## Step 1 — pick the genre
 
 1. If the invocation arg is `funny` or `horror`, use it.
-2. Else read the most recent `episodes/*/story.json` (by folder date) and pick the
+2. Else read the most recent `episodes/local/*/story.json` (by folder date) and pick the
    **opposite** of its `genre` to keep the feed varied.
 3. If there are no episodes yet, default to `horror`.
 
@@ -32,8 +32,9 @@ Write an original, self-contained micro-story built for a swipe carousel:
 
 ### story.json schema
 
-Write to `episodes/<YYYY-MM-DD>-<slug>/story.json` where `<slug>` is 2–4 kebab
-words from the title. `<YYYY-MM-DD>` is today.
+Write to `episodes/local/<YYYY-MM-DD>-<slug>/story.json` where `<slug>` is 2–4 kebab
+words from the title. `<YYYY-MM-DD>` is today. The `npm run` wrappers below take
+just the `<slug>` and resolve the directory themselves.
 
 ```jsonc
 {
@@ -98,11 +99,11 @@ npm run art <slug>
 
 - This needs `GEMINI_API_KEY` in `.env`. If the command reports it missing,
   **stop and tell the user** exactly that — do not fake or skip art.
-- It generates `assets/style-ref.png` once (reused forever), then a per-episode
-  `character-sheet.png`, then each panel into `panels/raw/`. Re-running only
-  fills in missing panels; delete a panel PNG to force a redo.
-- Rough cost: ~$0.30–0.80 for a full episode. It's logged to
-  `episodes/<slug>/cost.log`.
+- It generates `styles/<styleKey>/style-ref.png` once (reused forever), then a
+  per-episode `character-sheet.png`, then each panel into `panels/raw/`. Re-running
+  only fills in missing panels; delete a panel PNG to force a redo.
+- Rough cost: ~$0.30–0.80 for a full episode. Per-image usage is logged to
+  `usage/local.jsonl`.
 
 ## Step 4 — compose + review
 
@@ -126,8 +127,8 @@ give them a 3–4 line summary (title, logline, panel count, the twist), and wai
   - `npm run publish <slug> -- --now` → publishes immediately. Only run this on
     the user's explicit instruction in the conversation — it's a public post.
   - `npm run publish <slug> -- --only tiktok` → one platform.
-  - Targets are in `config/publish.json`: Instagram `@bennysynthwork` (4:5 set)
-    and TikTok `@ebiyasg` (9:16 set).
+  - Targets come from `tenants/local.json` (its `publish` block): Instagram
+    `@bennysynthwork` (4:5 set) and TikTok `@ebiyasg` (9:16 set).
   - Needs `ZERNIO_API_KEY` in `.env`. If missing, stop and tell the user.
 - **Copy tweak only:** edit `story.json` (narration/dialogue/caption), re-run
   `npm run compose <slug>` then `npm run review <slug>`. No art cost.
@@ -138,8 +139,9 @@ give them a 3–4 line summary (title, logline, panel count, the twist), and wai
 
 - Offline preview of lettering without spending on art:
   `npm run compose <slug> -- --placeholder`.
-- Don't edit `config/style-bible.md` casually — it's the consistency anchor.
-  If you do change it, delete `assets/style-ref.png` so it regenerates.
+- Don't edit `styles/graphic-novel-noir/style-bible.md` casually — it's the
+  consistency anchor. If you do change it, delete
+  `styles/graphic-novel-noir/style-ref.png` so it regenerates.
 
 ## Engine mode
 
