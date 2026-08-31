@@ -13,9 +13,18 @@ function esc(s: string): string {
  * `src/build-review.ts` script so the scheduled runner (src/run.ts) and the
  * single-episode CLI share one implementation.
  */
+/** A social hashtag is one token — strip "#", spaces, punctuation; drop empties. */
+export function formatHashtags(tags: string[]): string {
+  return tags
+    .map((t) => t.replace(/^#/, "").replace(/[^\p{L}\p{N}]+/gu, "").trim())
+    .filter(Boolean)
+    .map((t) => "#" + t)
+    .join(" ");
+}
+
 export function writeReviewBundle(episodeDir: string, story: Story): void {
   // caption.txt
-  const caption = `${story.caption}\n\n${story.hashtags.map((h) => (h.startsWith("#") ? h : "#" + h)).join(" ")}\n`;
+  const caption = `${story.caption}\n\n${formatHashtags(story.hashtags)}\n`;
   writeFileSync(join(episodeDir, "caption.txt"), caption);
 
   // status.json (create if missing)

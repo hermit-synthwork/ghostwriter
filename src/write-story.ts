@@ -29,7 +29,7 @@ Return exactly this shape (no markdown fence, no prose):
     "sfx": "optional single word e.g. KRRK, omit if none"
   }],
   "caption": "hook line + 1-2 line tease + soft follow CTA, no spoiler",
-  "hashtags": ["6-12 tags, mix broad + niche"]
+  "hashtags": ["6-12 single-word tags, no spaces, no # prefix, mix broad + niche"]
 }
 bubble_pos = [x,y] fractions 0..1; keep important bubbles between y 0.18 and 0.78.`;
 
