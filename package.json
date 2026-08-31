@@ -7,7 +7,7 @@
   "scripts": {
     "smoke": "tsx src/gemini.ts --smoke",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test --test-force-exit test/**/*.test.ts",
+    "test": "node --import tsx --test --test-force-exit --test-concurrency=1 test/**/*.test.ts",
     "run": "tsx src/run.ts",
     "story": "tsx src/write-story.ts",
     "db:generate": "drizzle-kit generate",
