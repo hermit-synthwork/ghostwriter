@@ -7,8 +7,11 @@ export const dynamic = "force-dynamic";
 export default async function Home() {
   const episodes = await listEpisodes();
   const needsReview = episodes.filter((e) => e.status === "ready");
-  const queued = episodes.filter((e) => e.status === "approved");
-  const rest = episodes.filter((e) => e.status !== "ready" && e.status !== "approved");
+  const approved = episodes.filter((e) => e.status === "approved");
+  const scheduled = episodes.filter((e) => e.status === "scheduled");
+  const rest = episodes.filter(
+    (e) => e.status !== "ready" && e.status !== "approved" && e.status !== "scheduled",
+  );
 
   return (
     <div className="space-y-8">
@@ -16,9 +19,15 @@ export default async function Home() {
         {needsReview.map((e) => <EpisodeCard key={e.id} e={e} />)}
       </Section>
 
-      {queued.length > 0 && (
-        <Section title="Approved · posts on the next sweep" count={queued.length}>
-          {queued.map((e) => <EpisodeCard key={e.id} e={e} />)}
+      {approved.length > 0 && (
+        <Section title="Approved · scheduling on the next sweep" count={approved.length}>
+          {approved.map((e) => <EpisodeCard key={e.id} e={e} />)}
+        </Section>
+      )}
+
+      {scheduled.length > 0 && (
+        <Section title="Scheduled · in Zernio's queue" count={scheduled.length}>
+          {scheduled.map((e) => <EpisodeCard key={e.id} e={e} />)}
         </Section>
       )}
 

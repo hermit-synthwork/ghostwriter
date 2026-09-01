@@ -3,7 +3,7 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import { db, episode, tenant, type EpisodeRow, type TenantRow } from "./db";
 
 export type EpisodeWithTenant = EpisodeRow & {
-  tenant: Pick<TenantRow, "id" | "displayName" | "language" | "autonomy" | "styleKey">;
+  tenant: Pick<TenantRow, "id" | "displayName" | "language" | "autonomy" | "styleKey" | "cadence">;
 };
 
 const tenantCols = {
@@ -12,6 +12,7 @@ const tenantCols = {
   language: tenant.language,
   autonomy: tenant.autonomy,
   styleKey: tenant.styleKey,
+  cadence: tenant.cadence,
 };
 
 // ready first, then approved (waiting to publish), then everything else newest-first.
@@ -49,7 +50,8 @@ export async function saveCaption(id: string, caption: string): Promise<void> {
 
 /**
  * Approve a `ready` episode: optionally save an edited caption, then flip to
- * `approved`. The VPS `publish-approved` sweep picks it up and posts it.
+ * `approved`. The VPS `schedule-approved` sweep picks it up and hands it to
+ * Zernio as a scheduled post for the tenant's cadence.time.
  * Guarded on status so a double-submit / stale tab can't re-approve.
  */
 export async function approveEpisode(id: string, caption?: string): Promise<void> {

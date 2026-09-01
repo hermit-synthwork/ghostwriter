@@ -6,6 +6,7 @@ import { getEpisode, setEpisodeStatus } from "../db/episodes.ts";
 import { db } from "../db/client.ts";
 import { episode } from "../db/schema.ts";
 import { getTenant, type TenantConfig } from "../lib/tenant.ts";
+import { scheduleSlot, zonedWallClockToUtc } from "../lib/schedule.ts";
 
 export type { PublishMode };
 
@@ -133,13 +134,13 @@ export async function publishEpisode(
 }
 
 /**
- * An episode row is picked up by the "publish approved" sweep only when it sits
- * at `status='approved'` AND its tenant is one of the review autonomies. This
- * keeps the sweep off `autonomous` tenants (whose episodes also land on
- * `approved` after a Zernio draft is created) and off `scheduled` ones.
- * Pure — locked by test/publish-approved.test.ts.
+ * An episode row is picked up by the approved-episode sweep only when it sits at
+ * `status='approved'` AND its tenant is one of the review autonomies. This keeps
+ * the sweep off `autonomous` tenants (whose episodes also land on `approved`
+ * after a Zernio draft is created) and off `scheduled` ones.
+ * Pure — locked by test/schedule-approved.test.ts.
  */
-export function eligibleForApprovedPublish(
+export function eligibleForApprovedSweep(
   status: string,
   autonomy: TenantConfig["autonomy"],
 ): boolean {
@@ -147,35 +148,43 @@ export function eligibleForApprovedPublish(
 }
 
 /**
- * Publish every episode a human approved in the review app. Called by the VPS
- * cron (`src/publish-approved.ts`) on a short interval. Each eligible episode is
- * published *now* (mode "now" flips the row to `posted`); a failure marks that
- * one `failed` and the sweep moves on. Returns the ids it published.
+ * Take every episode a human approved in the review app and hand it to Zernio as
+ * a *scheduled* post for that tenant's `cadence.time` (today if still ahead, else
+ * ~2h out). The episode row goes to `status='scheduled'` with `scheduledFor`
+ * set. Approving at 2am still means it posts at 09:00. A failure marks that one
+ * episode `failed` and the sweep moves on. Returns the ids it scheduled.
+ * Called by the VPS cron (`src/schedule-approved.ts`) on a short interval.
  */
-export async function publishApproved(): Promise<string[]> {
+export async function scheduleApproved(): Promise<string[]> {
   const rows = await db
     .select({ id: episode.id, tenantId: episode.tenantId, status: episode.status })
     .from(episode)
     .where(eq(episode.status, "approved"));
 
-  const published: string[] = [];
+  const now = new Date();
+  const scheduled: string[] = [];
   for (const r of rows) {
-    let autonomy: TenantConfig["autonomy"];
+    let tenant: TenantConfig;
     try {
-      autonomy = (await getTenant(r.tenantId)).autonomy;
+      tenant = await getTenant(r.tenantId);
     } catch (err) {
       console.error(`[${r.tenantId}] skip approved ${r.id}: ${(err as Error).message}`);
       continue;
     }
-    if (!eligibleForApprovedPublish(r.status, autonomy)) continue;
+    if (!eligibleForApprovedSweep(r.status, tenant.autonomy)) continue;
 
     try {
-      const res = await publishEpisode(r.tenantId, r.id, "now");
-      published.push(r.id);
-      console.log(`[${r.tenantId}] published approved ${r.id}: ${res.map((x) => `${x.platform}=${x.postId}`).join(" ")}`);
+      const slot = scheduleSlot(tenant, now);
+      const res = await publishEpisode(r.tenantId, r.id, "schedule", null, slot);
+      await setEpisodeStatus(r.id, "scheduled", {
+        scheduledFor: zonedWallClockToUtc(slot.at, slot.tz),
+        posts: res,
+      });
+      scheduled.push(r.id);
+      console.log(`[${r.tenantId}] scheduled approved ${r.id} for ${slot.at} ${slot.tz}: ${res.map((x) => `${x.platform}=${x.postId}`).join(" ")}`);
     } catch (err) {
       const message = (err as Error).message;
-      console.error(`[${r.tenantId}] publish approved ${r.id} FAILED: ${message}`);
+      console.error(`[${r.tenantId}] schedule approved ${r.id} FAILED: ${message}`);
       try {
         await setEpisodeStatus(r.id, "failed", { error: message });
       } catch (e) {
@@ -183,5 +192,5 @@ export async function publishApproved(): Promise<string[]> {
       }
     }
   }
-  return published;
+  return scheduled;
 }

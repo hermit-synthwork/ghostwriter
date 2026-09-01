@@ -54,7 +54,13 @@ export default async function EpisodePage({ params }: { params: Promise<{ id: st
       </section>
 
       {e.status === "ready" ? (
-        <ReviewActions id={e.id} caption={e.caption} hashtags={e.hashtags} />
+        <ReviewActions
+          id={e.id}
+          caption={e.caption}
+          hashtags={e.hashtags}
+          postTime={e.tenant.cadence?.time}
+          tz={e.tenant.cadence?.tz}
+        />
       ) : (
         <section className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3">
           <p className="text-xs font-medium text-zinc-500">Caption</p>

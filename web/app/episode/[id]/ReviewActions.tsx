@@ -4,8 +4,8 @@ import { useFormStatus } from "react-dom";
 import { approveAction, rejectAction, saveCaptionAction } from "./actions";
 
 export function ReviewActions({
-  id, caption, hashtags,
-}: { id: string; caption: string; hashtags: string[] }) {
+  id, caption, hashtags, postTime, tz,
+}: { id: string; caption: string; hashtags: string[]; postTime?: string; tz?: string }) {
   return (
     <div className="space-y-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3">
       <form className="space-y-3">
@@ -21,13 +21,18 @@ export function ReviewActions({
         {hashtags.length > 0 && (
           <p className="text-xs text-zinc-500">{hashtags.map((h) => `#${h.replace(/^#+/, "")}`).join(" ")}</p>
         )}
+        <p className="text-xs text-zinc-500">
+          Approve → scheduled to post
+          {postTime ? ` at ${postTime}${tz ? ` ${tz}` : ""}` : " at the tenant's daily slot"}
+          {" "}(or ~2h out if you approve after that). Edit the caption above first if needed.
+        </p>
         <div className="flex flex-wrap gap-2">
           <Submit
             formAction={approveAction.bind(null, id)}
             className="bg-emerald-600 text-white hover:bg-emerald-500"
             pending="Approving…"
           >
-            Approve &amp; publish
+            Approve
           </Submit>
           <Submit
             formAction={saveCaptionAction.bind(null, id)}
