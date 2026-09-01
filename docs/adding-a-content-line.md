@@ -14,8 +14,12 @@ sometimes it needs a new house style and/or a new genre value. The **wuxia** lin
   is "funny but about X" is just a new `niche`, not a new genre.
 - **Standalone or serialized?** The engine is standalone-only (fresh cast every
   episode, no cross-episode state). Serialized needs engine work — out of scope here.
-- **Autonomy** — `review_each` for anything unproven; `autonomous` only once the
-  look and engagement are established.
+- **Autonomy** — `review_each` (every episode waits for manual approval),
+  `autonomous` (engine approves + pushes a Zernio **draft**, you publish there), or
+  `scheduled` (engine approves + creates a **scheduled** Zernio post for that day at
+  `cadence.time` — no human step; cancel in Zernio's queue if needed). For
+  `scheduled`, `cadence.time` is the publish time and the trigger must run a few
+  hours earlier (see `docs/deploy-vps.md`).
 - **Publish target** — an Instagram (or TikTok) `accountId` already connected in
   Zernio. Reuse `@bennysynthwork` to test, swap later.
 - **Which Zernio account** — by default every tenant publishes with the shared

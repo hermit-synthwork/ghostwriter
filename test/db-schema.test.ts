@@ -24,3 +24,12 @@ test("genre + genres enums include wuxia", async () => {
   assert.match(String(rows[0]!.g), /wuxia/);
   assert.match(String(rows[0]!.gs), /wuxia/);
 });
+
+test("autonomy enum includes scheduled; tenant has a language column", async () => {
+  const rows = await testDb.execute(sql`select enum_range(null::autonomy) as a`);
+  assert.match(String(rows[0]!.a), /scheduled/);
+  const cols = await testDb.execute(sql`
+    select column_name from information_schema.columns
+    where table_schema = 'public' and table_name = 'tenant' and column_name = 'language'`);
+  assert.equal(cols.length, 1);
+});

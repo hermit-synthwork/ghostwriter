@@ -22,6 +22,13 @@
       "when": 1788256693066,
       "tag": "0002_bouncy_obadiah_stane",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788263711410,
+      "tag": "0003_demonic_boomer",
+      "breakpoints": true
     }
   ]
 }

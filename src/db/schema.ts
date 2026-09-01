@@ -2,7 +2,7 @@ import { pgTable, pgEnum, text, integer, boolean, timestamp, jsonb, uuid, index 
 
 export const genreEnum = pgEnum("genre", ["funny", "horror", "wuxia"]);
 export const genresEnum = pgEnum("genres", ["funny", "horror", "both", "wuxia"]);
-export const autonomyEnum = pgEnum("autonomy", ["autonomous", "review_each", "review_weekly"]);
+export const autonomyEnum = pgEnum("autonomy", ["autonomous", "review_each", "review_weekly", "scheduled"]);
 export const episodeStatusEnum = pgEnum("episode_status", [
   "generating", "ready", "approved", "scheduled", "posted", "failed", "rejected",
 ]);

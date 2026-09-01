@@ -1,6 +1,6 @@
 import { rmSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { listActiveTenants, getTenant, isDue, type TenantConfig } from "./lib/tenant.ts";
+import { listActiveTenants, getTenant, isDue, localParts, type TenantConfig } from "./lib/tenant.ts";
 import { recentEpisodes, createEpisode, setEpisodeStatus } from "./db/episodes.ts";
 import { logUsage } from "./lib/usage.ts";
 import { writeStory } from "./write-story.ts";
@@ -17,6 +17,32 @@ export interface RunPlanItem { tenantId: string; genre: "funny" | "horror" | "wu
 
 const CACHE_DIR = join(REPO_ROOT, ".cache");
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * When a `scheduled` tenant's episode should be published: today at the tenant's
+ * cadence.time if that is still ahead, else ~2h from now (the trigger ran late).
+ * Returned as a local wall-clock string + the tenant tz for Zernio's `timezone`.
+ */
+export function scheduleSlot(t: TenantConfig, now: Date): { at: string; tz: string } {
+  const tz = t.cadence.tz;
+  const p = localParts(now, tz);
+  if (p.hhmm < t.cadence.time) return { at: `${p.date}T${t.cadence.time}:00`, tz };
+  const soon = localParts(new Date(now.getTime() + 2 * 60 * 60 * 1000), tz);
+  return { at: `${soon.date}T${soon.hhmm}:00`, tz };
+}
+
+/** UTC instant for a local wall-clock "YYYY-MM-DDTHH:MM:SS" in an IANA zone. */
+export function zonedWallClockToUtc(wall: string, tz: string): Date {
+  const guess = new Date(`${wall}Z`);
+  const seenParts = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz, hourCycle: "h23",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+  }).formatToParts(guess);
+  const g = Object.fromEntries(seenParts.map((x) => [x.type, x.value])) as Record<string, string>;
+  const seen = Date.UTC(+g.year, +g.month - 1, +g.day, +g.hour, +g.minute, +g.second);
+  return new Date(guess.getTime() + (guess.getTime() - seen));
+}
 
 /**
  * Housekeeping for `.cache/<episodeId>/` raw-panel dirs. Pass the id of an
@@ -106,7 +132,16 @@ export async function runDueTenants(opts: {
         const panelUrls = await composeEpisode(t, episodeId, ep.blobPrefix, story);
         await finalizeEpisode(episodeId, story, panelUrls);
 
-        if (t.autonomy === "autonomous" && !opts.dry) {
+        if (t.autonomy === "scheduled" && !opts.dry) {
+          await setEpisodeStatus(episodeId, "approved", { approvedAt: new Date() });
+          const slot = scheduleSlot(t, now);
+          const res = await publishEpisode(t.id, episodeId, "schedule", null, slot);
+          await setEpisodeStatus(episodeId, "scheduled", {
+            scheduledFor: zonedWallClockToUtc(slot.at, slot.tz),
+            posts: res,
+          });
+          console.log(`[${t.id}] scheduled ${slot.at} ${slot.tz}: ${res.map((r) => `${r.platform}=${r.postId}`).join(" ")}`);
+        } else if (t.autonomy === "autonomous" && !opts.dry) {
           await setEpisodeStatus(episodeId, "approved", { approvedAt: new Date() });
           const mode = opts.nowPublish ? "now" : "draft";
           const res = await publishEpisode(t.id, episodeId, mode);

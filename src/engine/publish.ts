@@ -47,7 +47,12 @@ export async function publishEpisode(
   episodeId: string,
   mode: PublishMode,
   only?: string | null,
+  /** mode "schedule" only: local wall-clock "YYYY-MM-DDTHH:MM:SS" + IANA timezone. */
+  schedule?: { at: string; tz: string },
 ): Promise<{ platform: string; handle: string; postId: string }[]> {
+  if (mode === "schedule" && (!schedule?.at || !schedule?.tz)) {
+    throw new Error('publishEpisode mode "schedule" needs a { at, tz }');
+  }
   loadEnv();
   const { varName: zernioVar, key: zernioKey } = resolveZernioKey(tenantId);
 
@@ -99,12 +104,15 @@ export async function publishEpisode(
       platform: target.platform,
       accountId: target.accountId,
       mode,
+      scheduledFor: schedule?.at,
+      timezone: schedule?.tz,
       apiKey: zernioKey,
     });
     const postId = created.post?._id ?? created._id ?? "(id not returned)";
     results.push({ platform: target.platform, handle: target.handle, postId });
     await logUsage(tenantId, { episodeId, kind: "post", qty: 1, keyOwner: "platform" });
-    console.log(`  → ${mode === "now" ? "published" : "draft"}: ${postId}\n`);
+    const verb = mode === "now" ? "published" : mode === "schedule" ? `scheduled ${schedule!.at} ${schedule!.tz}` : "draft";
+    console.log(`  → ${verb}: ${postId}\n`);
   }
 
   if (mode === "now") {
@@ -112,6 +120,8 @@ export async function publishEpisode(
     console.log("✓ published:");
     for (const r of results) console.log(`  ${r.platform}  @${r.handle}  ${r.postId}`);
     console.log("\n  verify: open each profile and hard-refresh.\n");
+  } else if (mode === "schedule") {
+    console.log(`✓ scheduled in Zernio for ${schedule!.at} ${schedule!.tz} — cancel there if needed.\n`);
   } else {
     console.log("✓ drafts created in Zernio — review + publish there.\n");
   }

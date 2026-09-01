@@ -13,8 +13,8 @@ const wuxia = {
   id: "wuxia", ownerUserId: null, displayName: "JIANGHU", styleKey: "wuxia-manhua",
   language: "zh-Hans" as const,
   niche: "Self-contained wuxia vignettes in a nameless ancient jianghu — the world of rivers and lakes, where wandering swordsmen, sworn siblings, and rival sects settle debts of honour. Each episode is one clean turn or reveal: a duel decided on a rope bridge or a teahouse floor, a betrayal uncovered, a master's dying request answered, a years-long revenge collected, a stolen manual returned. Xianxia flavour is seasoning, never a system to explain — qi cultivation and a hard-won breakthrough, a sworn immortal repaying a favour, a spirit beast, a blade that hums. Fresh cast every episode, no recurring characters. Action is stylized and bloodless: implied strikes, wire-fu leaps, a fallen opponent, never gore or wounds. Grounded and unironic in tone; PG-13. Original characters and stories only — no real people, films, novels, manhua, or artists.",
-  genres: "wuxia" as const, autonomy: "review_each" as const,
-  // Mon/Wed/Fri — 3x/week, offset from singlish's Sun/Tue/Thu/Sat.
+  genres: "wuxia" as const, autonomy: "scheduled" as const, // no review — engine schedules the post in Zernio
+  // Mon/Wed/Fri; time = when Zernio publishes (the trigger runs a few hours earlier).
   cadence: { days: [1, 3, 5], time: "09:00", tz: "Asia/Singapore" },
   // Its own Zernio account — publish resolves ZERNIO_API_KEY_WUXIA (see .env.example).
   publish: {

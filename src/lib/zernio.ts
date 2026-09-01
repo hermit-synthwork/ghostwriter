@@ -72,7 +72,7 @@ export async function uploadImage(
   return publicUrl;
 }
 
-export type PublishMode = "draft" | "now";
+export type PublishMode = "draft" | "now" | "schedule";
 
 export interface CreatedPost {
   post?: { _id?: string; status?: string };
@@ -85,6 +85,9 @@ export async function createPost(opts: {
   platform: string;
   accountId: string;
   mode: PublishMode;
+  /** For mode "schedule": local wall-clock "YYYY-MM-DDTHH:MM:SS" + IANA `timezone`. */
+  scheduledFor?: string;
+  timezone?: string;
   apiKey?: string;
 }): Promise<CreatedPost> {
   const body: Record<string, unknown> = {
@@ -92,8 +95,17 @@ export async function createPost(opts: {
     mediaItems: opts.mediaUrls.map((url) => ({ type: "image", url })),
     platforms: [{ platform: opts.platform, accountId: opts.accountId }],
   };
-  if (opts.mode === "now") body.publishNow = true;
-  else body.isDraft = true;
+  if (opts.mode === "now") {
+    body.publishNow = true;
+  } else if (opts.mode === "schedule") {
+    if (!opts.scheduledFor || !opts.timezone) {
+      throw new Error('createPost mode "schedule" needs scheduledFor + timezone');
+    }
+    body.scheduledFor = opts.scheduledFor;
+    body.timezone = opts.timezone;
+  } else {
+    body.isDraft = true;
+  }
 
   return api<CreatedPost>("/posts", { method: "POST", body: JSON.stringify(body) }, opts.apiKey);
 }

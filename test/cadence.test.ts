@@ -5,7 +5,7 @@ import type { TenantConfig } from "../src/lib/tenant.ts";
 
 const base: TenantConfig = {
   id: "t", displayName: "T", styleKey: "graphic-novel-noir", niche: "x",
-  genres: "horror", autonomy: "autonomous",
+  language: "en", genres: "horror", autonomy: "autonomous",
   cadence: { days: [1, 3, 5], time: "09:00", tz: "Asia/Singapore" },
   publish: {},
 };
@@ -33,4 +33,11 @@ test("not due if an episode already exists for today (tenant local date)", () =>
 
 test("due if the last episode was a previous day", () => {
   assert.equal(isDue(base, monday0930sg, "2026-08-28"), true);
+});
+
+test("a scheduled tenant is due before its cadence.time (the trigger, not a gate)", () => {
+  const sched: TenantConfig = { ...base, autonomy: "scheduled" };
+  assert.equal(isDue(sched, monday0830sg, null), true); // 08:30 < 09:00 but scheduled
+  assert.equal(isDue(sched, tuesday0930sg, null), false); // still gated on the weekday
+  assert.equal(isDue(sched, monday0930sg, "2026-08-31"), false); // still one per day
 });
