@@ -1,0 +1,1 @@
+ALTER TABLE "tenant" ADD COLUMN "language" text DEFAULT 'en' NOT NULL;

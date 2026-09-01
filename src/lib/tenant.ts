@@ -9,6 +9,7 @@ export interface TenantConfig {
   displayName: string;
   styleKey: string;
   niche: string;
+  language: string; // "en" | "zh-Hans"
   genres: "funny" | "horror" | "wuxia" | "both";
   autonomy: "autonomous" | "review_each" | "review_weekly";
   cadence: Cadence;
@@ -41,7 +42,7 @@ export function isDue(t: TenantConfig, now: Date, lastEpisodeDate: string | null
 function toConfig(r: TenantRow): TenantConfig {
   return {
     id: r.id, displayName: r.displayName, styleKey: r.styleKey, niche: r.niche,
-    genres: r.genres, autonomy: r.autonomy, cadence: r.cadence,
+    language: r.language, genres: r.genres, autonomy: r.autonomy, cadence: r.cadence,
     publish: r.publish, geminiKey: undefined, // BYO wired in sub-project B
   };
 }

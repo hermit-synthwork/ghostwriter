@@ -15,6 +15,7 @@ export const tenant = pgTable("tenant", {
   displayName: text("display_name").notNull(),
   styleKey: text("style_key").notNull(),
   niche: text("niche").notNull(),
+  language: text("language").notNull().default("en"), // BCP-47-ish; "en" | "zh-Hans" so far
   genres: genresEnum("genres").notNull(),
   autonomy: autonomyEnum("autonomy").notNull(),
   cadence: jsonb("cadence").notNull().$type<{ days: number[]; time: string; tz: string }>(),
