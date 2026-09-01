@@ -1,6 +1,6 @@
 ---
 name: ghostwriter
-description: The story spec for one Ghostwriter comic-carousel episode — an original funny or horror short story told in 6–8 illustrated comic panels in the frozen house style, plus caption and hashtags. This is the human-readable reference for what the headless engine's story prompt encodes. Use when the user runs /ghostwriter, says "new ghostwriter episode", "make a comic carousel", "draft a horror/funny comic story", or asks how a story is structured.
+description: The story spec for one Ghostwriter comic-carousel episode — an original funny, horror, or wuxia short story told in 6–8 illustrated comic panels in the frozen house style, plus caption and hashtags. This is the human-readable reference for what the headless engine's story prompt encodes. Use when the user runs /ghostwriter, says "new ghostwriter episode", "make a comic carousel", "draft a horror/funny/wuxia comic story", or asks how a story is structured.
 ---
 
 # Ghostwriter — the episode spec
@@ -30,23 +30,32 @@ one tenant **regardless of its cadence** (no `isDue` gate) and, for a
 `genres: "both"` tenant, uses a fixed genre rather than alternating. The real
 schedule is the bare `npm run run` invoked by cron.
 
-## Genre alternation
+## Genre
 
-The engine alternates genre against the tenant's recent episodes (last episode
-horror → next funny, and vice versa), unless the tenant is pinned to one genre.
-First episode for a tenant defaults to `horror`.
+A tenant pinned to one genre (`funny`, `horror`, or `wuxia`) always writes that
+genre — no alternation. A `genres: "both"` tenant alternates funny/horror against
+its recent episodes (last episode horror → next funny, and vice versa); its first
+episode defaults to `horror`. `wuxia` is a single-genre pin only — it never
+participates in `both` alternation.
 
 ## The story
 
 An original, self-contained micro-story built for a swipe carousel:
 
 - **6–8 panels.** Panel 1 is a hook (a striking image + a question the reader
-  needs answered). The final panel lands the twist (horror) or the punchline
-  (funny). One clean arc, no filler.
+  needs answered). The final panel lands the twist (horror), the punchline
+  (funny), or the decisive turn — a duel settled, a betrayal revealed, an honour
+  test met (wuxia). One clean arc, no filler.
 - **Fresh cast, 2–4 characters.** Give each a distinct silhouette and 2–4
   `visual_tags` (a garment, a prop, hair, build) so the artist can keep them
   consistent. No recurring characters between episodes.
+- **Wuxia** = a self-contained jianghu vignette (wandering swordsman, sect, oath,
+  debt, revenge, a master's last request). Optional xianxia flavour (qi, flight,
+  sworn immortals, a breakthrough) is colour, not a power system to explain.
+  Stylized, bloodless action.
 - **Original only.** Do not adapt Reddit posts, creepypasta, or existing bits.
+  For wuxia, invent your own sects and heroes — never reproduce characters,
+  plots, or an identifiable artist's style from any real manhua, film, or novel.
 - **Keep it PG-13 and platform-safe** — see the checklist below.
 
 ### story.json schema
@@ -59,7 +68,7 @@ it is not written to a file by hand. `<slug>` is 2–4 kebab words from the titl
 {
   "date": "2026-08-31",
   "slug": "the-last-carriage",
-  "genre": "horror",
+  "genre": "horror | funny | wuxia",
   "title": "The Last Carriage",
   "logline": "One sentence, no spoiler — what the reader thinks they're getting.",
   "cast": [
@@ -102,7 +111,11 @@ Rules for the fields:
 
 - Horror = dread, shadow, implication. **No** gore, wounds, blood pooling, body
   horror, or on-panel death detail.
-- No real, named people or public figures; no real brands as plot elements.
+- Wuxia = stylized, bloodless martial arts: implied strikes, wire-fu motion, a
+  fallen opponent. **No** blood, wounds, or lingering on injury.
+- No real, named people or public figures; no real brands as plot elements. For
+  wuxia, also no real manhua/film/novel characters, plots, or an identifiable
+  artist's style — original sects and heroes only.
 - No hate, slurs, or targeting of protected groups.
 - No depiction or how-to of self-harm, suicide, or drug use.
 - No sexual content; characters clothed.

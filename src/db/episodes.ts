@@ -5,7 +5,7 @@ import { episode, type EpisodeRow } from "./schema.ts";
 import type { Story } from "../lib/story.ts";
 
 export type EpisodeStatus = EpisodeRow["status"];
-export interface EpisodeMeta { date: string; genre: "funny" | "horror"; title: string }
+export interface EpisodeMeta { date: string; genre: "funny" | "horror" | "wuxia"; title: string }
 
 export async function createEpisode(tenantId: string, story: Story): Promise<{ id: string; blobPrefix: string }> {
   const id = randomUUID();

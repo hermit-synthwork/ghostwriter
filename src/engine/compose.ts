@@ -28,7 +28,12 @@ function firstHandle(tenant: TenantConfig): string {
  */
 export function brandFor(tenant: TenantConfig, story: Story): OverlayBrand {
   const tokens = resolveStyle(story.styleKey ?? tenant.styleKey).tokens;
-  return { displayName: tenant.displayName, handle: firstHandle(tenant), tokens };
+  return {
+    displayName: tenant.displayName,
+    handle: firstHandle(tenant),
+    tokens,
+    lang: tenant.language,
+  };
 }
 
 /**

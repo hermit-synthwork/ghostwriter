@@ -9,8 +9,9 @@ export interface TenantConfig {
   displayName: string;
   styleKey: string;
   niche: string;
-  genres: "funny" | "horror" | "both";
-  autonomy: "autonomous" | "review_each" | "review_weekly";
+  language: string; // "en" | "zh-Hans"
+  genres: "funny" | "horror" | "wuxia" | "both";
+  autonomy: "autonomous" | "review_each" | "review_weekly" | "scheduled";
   cadence: Cadence;
   publish: { instagram?: PublishTarget; tiktok?: PublishTarget };
   geminiKey?: string;
@@ -33,7 +34,9 @@ export function localParts(now: Date, tz: string): { weekday: number; hhmm: stri
 export function isDue(t: TenantConfig, now: Date, lastEpisodeDate: string | null): boolean {
   const { weekday, hhmm, date } = localParts(now, t.cadence.tz);
   if (!t.cadence.days.includes(weekday)) return false;
-  if (hhmm < t.cadence.time) return false;
+  // "scheduled" tenants generate whenever the trigger fires that day; cadence.time
+  // is the time Zernio *publishes* at, not a gate on when the engine may run.
+  if (t.autonomy !== "scheduled" && hhmm < t.cadence.time) return false;
   if (lastEpisodeDate === date) return false;
   return true;
 }
@@ -41,7 +44,7 @@ export function isDue(t: TenantConfig, now: Date, lastEpisodeDate: string | null
 function toConfig(r: TenantRow): TenantConfig {
   return {
     id: r.id, displayName: r.displayName, styleKey: r.styleKey, niche: r.niche,
-    genres: r.genres, autonomy: r.autonomy, cadence: r.cadence,
+    language: r.language, genres: r.genres, autonomy: r.autonomy, cadence: r.cadence,
     publish: r.publish, geminiKey: undefined, // BYO wired in sub-project B
   };
 }

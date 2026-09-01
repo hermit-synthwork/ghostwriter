@@ -1,5 +1,5 @@
-import { requireEnv } from "../lib/env.ts";
-import { uploadImage, createPost, type PublishMode } from "../lib/zernio.ts";
+import { loadEnv } from "../lib/env.ts";
+import { uploadImage, createPost, resolveZernioKey, type PublishMode } from "../lib/zernio.ts";
 import { logUsage } from "../lib/usage.ts";
 import { getEpisode, setEpisodeStatus } from "../db/episodes.ts";
 import { getTenant, type TenantConfig } from "../lib/tenant.ts";
@@ -37,8 +37,9 @@ export function selectTargets(tenant: TenantConfig, only?: string | null): PubTa
  *   mode "draft" → create a draft post per platform in Zernio (safe default)
  *   mode "now"   → publish immediately and flip the episode row to "posted"
  *
- * `ZERNIO_API_KEY` is a platform-level credential (key-last: this throws a
- * clear message if it is missing). Panels of the same format are fetched +
+ * The Zernio key is resolved per tenant: `ZERNIO_API_KEY_<TENANT_ID>` if set (a
+ * dedicated Zernio account), else the shared `ZERNIO_API_KEY` (key-last: throws
+ * a clear message if neither exists). Panels of the same format are fetched +
  * uploaded to Zernio once and shared across platforms.
  */
 export async function publishEpisode(
@@ -46,8 +47,14 @@ export async function publishEpisode(
   episodeId: string,
   mode: PublishMode,
   only?: string | null,
+  /** mode "schedule" only: local wall-clock "YYYY-MM-DDTHH:MM:SS" + IANA timezone. */
+  schedule?: { at: string; tz: string },
 ): Promise<{ platform: string; handle: string; postId: string }[]> {
-  requireEnv("ZERNIO_API_KEY", "Create one in the Zernio dashboard → API Keys. Var: ZERNIO_API_KEY");
+  if (mode === "schedule" && (!schedule?.at || !schedule?.tz)) {
+    throw new Error('publishEpisode mode "schedule" needs a { at, tz }');
+  }
+  loadEnv();
+  const { varName: zernioVar, key: zernioKey } = resolveZernioKey(tenantId);
 
   const tenant = await getTenant(tenantId);
   const ep = await getEpisode(episodeId);
@@ -62,7 +69,7 @@ export async function publishEpisode(
   const results: { platform: string; handle: string; postId: string }[] = [];
 
   console.log(
-    `\nGhostwriter · publish · ${ep.slug} → ${targets.map((t) => t.platform).join(", ")} (${mode})\n`,
+    `\nGhostwriter · publish · ${ep.slug} → ${targets.map((t) => t.platform).join(", ")} (${mode}) · via ${zernioVar}\n`,
   );
 
   for (const target of targets) {
@@ -83,7 +90,7 @@ export async function publishEpisode(
         }
         const buf = Buffer.from(await res.arrayBuffer());
         const name = `${ep.slug}-${target.format}-${String(i + 1).padStart(2, "0")}.jpg`;
-        mediaUrls.push(await uploadImage(buf, name));
+        mediaUrls.push(await uploadImage(buf, name, "image/jpeg", zernioKey));
         console.log(`    panel ${i + 1} (${(buf.length / 1024).toFixed(0)} KB)`);
       }
       uploadCache.set(target.format, mediaUrls);
@@ -97,11 +104,15 @@ export async function publishEpisode(
       platform: target.platform,
       accountId: target.accountId,
       mode,
+      scheduledFor: schedule?.at,
+      timezone: schedule?.tz,
+      apiKey: zernioKey,
     });
     const postId = created.post?._id ?? created._id ?? "(id not returned)";
     results.push({ platform: target.platform, handle: target.handle, postId });
     await logUsage(tenantId, { episodeId, kind: "post", qty: 1, keyOwner: "platform" });
-    console.log(`  → ${mode === "now" ? "published" : "draft"}: ${postId}\n`);
+    const verb = mode === "now" ? "published" : mode === "schedule" ? `scheduled ${schedule!.at} ${schedule!.tz}` : "draft";
+    console.log(`  → ${verb}: ${postId}\n`);
   }
 
   if (mode === "now") {
@@ -109,6 +120,8 @@ export async function publishEpisode(
     console.log("✓ published:");
     for (const r of results) console.log(`  ${r.platform}  @${r.handle}  ${r.postId}`);
     console.log("\n  verify: open each profile and hard-refresh.\n");
+  } else if (mode === "schedule") {
+    console.log(`✓ scheduled in Zernio for ${schedule!.at} ${schedule!.tz} — cancel there if needed.\n`);
   } else {
     console.log("✓ drafts created in Zernio — review + publish there.\n");
   }

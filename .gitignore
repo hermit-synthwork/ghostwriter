@@ -6,3 +6,5 @@ node_modules/
 assets/smoke.png
 .DS_Store
 .superpowers/
+.vercel
+.env*

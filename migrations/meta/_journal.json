@@ -8,6 +8,27 @@
       "when": 1788184236274,
       "tag": "0000_happy_annihilus",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788249932130,
+      "tag": "0001_furry_sheva_callister",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788256693066,
+      "tag": "0002_bouncy_obadiah_stane",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788263711410,
+      "tag": "0003_demonic_boomer",
+      "breakpoints": true
     }
   ]
 }

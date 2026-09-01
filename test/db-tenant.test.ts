@@ -20,6 +20,13 @@ test("getTenant maps a row to TenantConfig", async () => {
   assert.equal(t.autonomy, "review_each");
   assert.equal(t.publish.instagram?.handle, "acme");
   assert.equal(t.geminiKey, undefined);
+  assert.equal(t.language, "en"); // column default when the row omits it
+});
+
+test("getTenant carries a non-default language", async () => {
+  await testDb.insert(tenant).values({ ...row, id: "cn", language: "zh-Hans" });
+  const t = await getTenant("cn");
+  assert.equal(t.language, "zh-Hans");
 });
 
 test("getTenant throws for a missing id", async () => {

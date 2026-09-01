@@ -1,8 +1,8 @@
 import { pgTable, pgEnum, text, integer, boolean, timestamp, jsonb, uuid, index } from "drizzle-orm/pg-core";
 
-export const genreEnum = pgEnum("genre", ["funny", "horror"]);
-export const genresEnum = pgEnum("genres", ["funny", "horror", "both"]);
-export const autonomyEnum = pgEnum("autonomy", ["autonomous", "review_each", "review_weekly"]);
+export const genreEnum = pgEnum("genre", ["funny", "horror", "wuxia"]);
+export const genresEnum = pgEnum("genres", ["funny", "horror", "both", "wuxia"]);
+export const autonomyEnum = pgEnum("autonomy", ["autonomous", "review_each", "review_weekly", "scheduled"]);
 export const episodeStatusEnum = pgEnum("episode_status", [
   "generating", "ready", "approved", "scheduled", "posted", "failed", "rejected",
 ]);
@@ -15,6 +15,7 @@ export const tenant = pgTable("tenant", {
   displayName: text("display_name").notNull(),
   styleKey: text("style_key").notNull(),
   niche: text("niche").notNull(),
+  language: text("language").notNull().default("en"), // BCP-47-ish; "en" | "zh-Hans" so far
   genres: genresEnum("genres").notNull(),
   autonomy: autonomyEnum("autonomy").notNull(),
   cadence: jsonb("cadence").notNull().$type<{ days: number[]; time: string; tz: string }>(),

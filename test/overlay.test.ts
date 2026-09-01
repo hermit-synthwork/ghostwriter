@@ -29,3 +29,16 @@ test("narration + dialogue add rendered content to the overlay", async () => {
   // header + watermark + counter are in both; narration box + speech bubble only in `full`
   assert.ok(full.length > empty.length + 500, `expected full (${full.length}) >> empty (${empty.length})`);
 });
+
+test("a zh-Hans brand renders Chinese lettering as glyph paths", async () => {
+  const cnPanel: Panel = {
+    n: 2, scene: "", camera: "", characters: [],
+    narration: "铁鹤谱在三夜前从宗门密库消失。", narration_pos: "top",
+    dialogue: [{ speaker: "胡长老", text: "坐下，姑娘。", bubble_pos: [0.5, 0.4] }],
+  };
+  const svg = await renderOverlaySvg(cnPanel, story, { ...brand, lang: "zh-Hans" }, size);
+  assert.match(svg, /^<svg/);
+  assert.match(svg, /<path/); // Han glyphs rendered as outlines, not tofu <rect>s
+  const bare = await renderOverlaySvg({ ...cnPanel, narration: null, dialogue: [] }, story, { ...brand, lang: "zh-Hans" }, size);
+  assert.ok(svg.length > bare.length + 500);
+});

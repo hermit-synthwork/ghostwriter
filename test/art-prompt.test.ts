@@ -18,3 +18,14 @@ test("buildPanelPrompt includes the style bible, scene, camera, SFX, and the no-
   assert.match(p, /no.*(speech balloons|lettering|text)/i);
   assert.match(p, /central vertical 80%/);
 });
+
+test("buildPanelPrompt forbids onomatopoeia when no SFX is requested", () => {
+  const p = buildPanelPrompt("S", story, { ...panel, sfx: undefined });
+  assert.match(p, /no sound-effect words, no onomatopoeia/i);
+  assert.doesNotMatch(p, /DING/);
+});
+
+test("buildPanelPrompt asks for a Simplified-Chinese SFX for a zh tenant", () => {
+  const p = buildPanelPrompt("S", story, panel, "zh-Hans");
+  assert.match(p, /"DING".*Simplified Chinese/);
+});
