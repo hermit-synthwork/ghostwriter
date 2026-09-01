@@ -1,7 +1,10 @@
+import { eq } from "drizzle-orm";
 import { loadEnv } from "../lib/env.ts";
 import { uploadImage, createPost, resolveZernioKey, type PublishMode } from "../lib/zernio.ts";
 import { logUsage } from "../lib/usage.ts";
 import { getEpisode, setEpisodeStatus } from "../db/episodes.ts";
+import { db } from "../db/client.ts";
+import { episode } from "../db/schema.ts";
 import { getTenant, type TenantConfig } from "../lib/tenant.ts";
 
 export type { PublishMode };
@@ -127,4 +130,58 @@ export async function publishEpisode(
   }
 
   return results;
+}
+
+/**
+ * An episode row is picked up by the "publish approved" sweep only when it sits
+ * at `status='approved'` AND its tenant is one of the review autonomies. This
+ * keeps the sweep off `autonomous` tenants (whose episodes also land on
+ * `approved` after a Zernio draft is created) and off `scheduled` ones.
+ * Pure — locked by test/publish-approved.test.ts.
+ */
+export function eligibleForApprovedPublish(
+  status: string,
+  autonomy: TenantConfig["autonomy"],
+): boolean {
+  return status === "approved" && (autonomy === "review_each" || autonomy === "review_weekly");
+}
+
+/**
+ * Publish every episode a human approved in the review app. Called by the VPS
+ * cron (`src/publish-approved.ts`) on a short interval. Each eligible episode is
+ * published *now* (mode "now" flips the row to `posted`); a failure marks that
+ * one `failed` and the sweep moves on. Returns the ids it published.
+ */
+export async function publishApproved(): Promise<string[]> {
+  const rows = await db
+    .select({ id: episode.id, tenantId: episode.tenantId, status: episode.status })
+    .from(episode)
+    .where(eq(episode.status, "approved"));
+
+  const published: string[] = [];
+  for (const r of rows) {
+    let autonomy: TenantConfig["autonomy"];
+    try {
+      autonomy = (await getTenant(r.tenantId)).autonomy;
+    } catch (err) {
+      console.error(`[${r.tenantId}] skip approved ${r.id}: ${(err as Error).message}`);
+      continue;
+    }
+    if (!eligibleForApprovedPublish(r.status, autonomy)) continue;
+
+    try {
+      const res = await publishEpisode(r.tenantId, r.id, "now");
+      published.push(r.id);
+      console.log(`[${r.tenantId}] published approved ${r.id}: ${res.map((x) => `${x.platform}=${x.postId}`).join(" ")}`);
+    } catch (err) {
+      const message = (err as Error).message;
+      console.error(`[${r.tenantId}] publish approved ${r.id} FAILED: ${message}`);
+      try {
+        await setEpisodeStatus(r.id, "failed", { error: message });
+      } catch (e) {
+        console.error(`[${r.tenantId}] could not mark ${r.id} failed: ${(e as Error).message}`);
+      }
+    }
+  }
+  return published;
 }

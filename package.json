@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test --test-force-exit --test-concurrency=1 test/**/*.test.ts",
     "run": "tsx src/run.ts",
+    "publish-approved": "tsx src/publish-approved.ts",
     "story": "tsx src/write-story.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
