@@ -9,7 +9,7 @@ export interface TenantConfig {
   displayName: string;
   styleKey: string;
   niche: string;
-  genres: "funny" | "horror" | "both";
+  genres: "funny" | "horror" | "wuxia" | "both";
   autonomy: "autonomous" | "review_each" | "review_weekly";
   cadence: Cadence;
   publish: { instagram?: PublishTarget; tiktok?: PublishTarget };

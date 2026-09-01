@@ -13,7 +13,7 @@ import { run as runTbl } from "./db/schema.ts";
 import { REPO_ROOT, loadEnv, requireEnv } from "./lib/env.ts";
 import { eq } from "drizzle-orm";
 
-export interface RunPlanItem { tenantId: string; genre: "funny" | "horror" }
+export interface RunPlanItem { tenantId: string; genre: "funny" | "horror" | "wuxia" }
 
 const CACHE_DIR = join(REPO_ROOT, ".cache");
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -50,7 +50,7 @@ export async function resolveRunPlan(tenants: TenantConfig[], now: Date): Promis
     const recent = await recentEpisodes(t.id, 5); // TODO(B): compare dates in tenant tz
     const last = recent[0]?.date ?? null;
     if (!isDue(t, now, last)) continue;
-    const genre: "funny" | "horror" =
+    const genre: "funny" | "horror" | "wuxia" =
       t.genres !== "both" ? t.genres : recent[0]?.genre === "horror" ? "funny" : "horror";
     plan.push({ tenantId: t.id, genre });
   }
@@ -63,7 +63,7 @@ export async function runDueTenants(opts: {
   const now = opts.now ?? new Date();
   const tenants = opts.tenantId ? [await getTenant(opts.tenantId)] : await listActiveTenants();
   const plan = opts.tenantId
-    ? tenants.map((t) => ({ tenantId: t.id, genre: (t.genres !== "both" ? t.genres : "horror") as "funny" | "horror" }))
+    ? tenants.map((t) => ({ tenantId: t.id, genre: (t.genres !== "both" ? t.genres : "horror") as "funny" | "horror" | "wuxia" }))
     : await resolveRunPlan(tenants, now);
 
   if (plan.length === 0) {

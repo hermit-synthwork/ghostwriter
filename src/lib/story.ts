@@ -1,4 +1,4 @@
-export type Genre = "funny" | "horror";
+export type Genre = "funny" | "horror" | "wuxia";
 
 export interface CastMember {
   name: string;

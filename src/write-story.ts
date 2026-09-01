@@ -8,14 +8,15 @@ const MODEL = "claude-sonnet-5";
 const SYSTEM = `You write original micro-stories for a swipe-carousel comic and return ONLY a JSON object.
 
 Rules:
-- 6–8 panels. Panel 1 hooks (striking image + an unanswered question). The final panel lands the twist (horror) or punchline (funny). One clean arc, no filler.
+- 6–8 panels. Panel 1 hooks (striking image + an unanswered question). The final panel lands the twist (horror), the punchline (funny), or the decisive turn — a duel settled, a betrayal revealed, an honour test met (wuxia). One clean arc, no filler.
 - Fresh cast, 2–4 characters. Each gets a distinct silhouette and 2–4 visual_tags (garment, prop, hair, build). No recurring characters.
-- Original only — do not adapt Reddit posts, creepypasta, or known bits.
-- PG-13 and platform-safe: horror = dread/shadow/implication, never gore, wounds, blood, or body horror. No real named people or brands. No hate/slurs. No self-harm or drug how-to. No sexual content.
+- Wuxia stories are self-contained jianghu vignettes: wandering swordsmen, sects, oaths, debts, revenge, a teahouse or rooftop showdown, a master's last request. Optional xianxia flavour — qi, flight, sworn immortals, a breakthrough, a spirit beast — is colour, not a power system to explain. One clean turn or reveal.
+- Original only — do not adapt Reddit posts, creepypasta, or known bits. For wuxia, invent your own sects, houses, and heroes: never reproduce characters, plots, or the identifiable style of any real manhua, film, novel, or artist.
+- PG-13 and platform-safe: horror = dread/shadow/implication, never gore, wounds, blood, or body horror; wuxia = stylized, bloodless martial arts — implied strikes, wire-fu motion, a fallen opponent, never blood, wounds, or lingering on injury. No real named people or brands. No hate/slurs. No self-harm or drug how-to. No sexual content.
 
 Return exactly this shape (no markdown fence, no prose):
 {
-  "date": "YYYY-MM-DD", "slug": "kebab-2-4-words", "genre": "horror|funny",
+  "date": "YYYY-MM-DD", "slug": "kebab-2-4-words", "genre": "horror|funny|wuxia",
   "title": "...", "logline": "one sentence, no spoiler",
   "cast": [{ "name": "...", "description": "...", "visual_tags": ["..."] }],
   "panels": [{
@@ -33,7 +34,7 @@ Return exactly this shape (no markdown fence, no prose):
 bubble_pos = [x,y] fractions 0..1; keep important bubbles between y 0.18 and 0.78.`;
 
 export interface StoryInput {
-  genre: "funny" | "horror";
+  genre: "funny" | "horror" | "wuxia";
   niche: string;
   styleKey: string;
   priorTitles: string[];
@@ -98,7 +99,7 @@ export async function writeStory(input: StoryInput): Promise<{ story: Story; usa
 if (process.argv[1]?.endsWith("write-story.ts")) {
   const arg = (k: string) => { const i = process.argv.indexOf(`--${k}`); return i === -1 ? undefined : process.argv[i + 1]; };
   const { story } = await writeStory({
-    genre: (arg("genre") as "funny" | "horror") ?? "horror",
+    genre: (arg("genre") as "funny" | "horror" | "wuxia") ?? "horror",
     niche: arg("niche") ?? "everyday life with a strange edge",
     styleKey: arg("style") ?? "graphic-novel-noir",
     priorTitles: [],
