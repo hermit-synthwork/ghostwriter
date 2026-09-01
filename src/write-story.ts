@@ -52,8 +52,9 @@ function languageBlock(language: string | undefined): string {
       `"hashtags" (Chinese tags, no # prefix, no spaces). Keep these in English, they are ` +
       `art direction the reader never sees: "slug" (ASCII kebab-case, transliterate or ` +
       `translate the title), every "scene", every "camera", and each cast member's ` +
-      `"description" and "visual_tags". Chinese is dense — cap "dialogue.text" at about 18 ` +
-      `characters, "narration" at about 34, "caption" at about 120.`
+      `"description" and "visual_tags". In Chinese text use full-width punctuation ` +
+      `（，。、！？：等），never ASCII commas / periods / question marks. Chinese is dense — ` +
+      `cap "dialogue.text" at about 18 characters, "narration" at about 34, "caption" at about 120.`
     );
   }
   return `\n\nLANGUAGE: Write every reader-facing string ("title", "logline", "dialogue.text", "narration", "caption", "hashtags") in the language tagged "${language}". Keep "slug", "scene", "camera", and cast "description"/"visual_tags" in English.`;

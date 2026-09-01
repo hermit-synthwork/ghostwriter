@@ -176,7 +176,7 @@ function speechBubble(
               fontFamily: displayFace(lang),
               fontSize: isCjk(lang) ? 28 : 22,
               color: tokens.accent,
-              letterSpacing: isCjk(lang) ? 2 : 1,
+              letterSpacing: isCjk(lang) ? 0 : 1,
               marginBottom: 4,
             },
           },
