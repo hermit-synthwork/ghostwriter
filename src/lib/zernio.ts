@@ -79,7 +79,7 @@ export interface CreatedPost {
   _id?: string;
 }
 
-export async function createPost(opts: {
+export interface PostSpec {
   content: string;
   mediaUrls: string[];
   platform: string;
@@ -89,12 +89,45 @@ export async function createPost(opts: {
   scheduledFor?: string;
   timezone?: string;
   apiKey?: string;
-}): Promise<CreatedPost> {
+}
+
+/** TikTok photo-carousel titles are capped at 90 chars with hashtags stripped;
+ *  the real caption goes in `tiktokSettings.description`. Take the caption's
+ *  first line (before the hashtag block). */
+export function tiktokTitle(content: string): string {
+  return content.split("\n\n")[0]!.replace(/#\S+/g, "").trim().slice(0, 90);
+}
+
+/**
+ * Build the `POST /posts` body. TikTok needs `tiktokSettings` at the top level
+ * (privacy + the two legal-consent flags + `media_type: "photo"`), and always
+ * goes via Creator Inbox (`draft: true`) — TikTok's direct photo-post endpoint
+ * is audit-gated and frequently at capacity, so the reliable path is: Zernio
+ * delivers to the account's inbox, the creator taps "Post" once in the app.
+ * Instagram uses the caption+hashtags string directly as `content`.
+ */
+export function buildPostBody(opts: PostSpec): Record<string, unknown> {
   const body: Record<string, unknown> = {
     content: opts.content,
     mediaItems: opts.mediaUrls.map((url) => ({ type: "image", url })),
     platforms: [{ platform: opts.platform, accountId: opts.accountId }],
   };
+
+  if (opts.platform === "tiktok") {
+    body.content = tiktokTitle(opts.content);
+    body.tiktokSettings = {
+      draft: true, // Creator Inbox — creator finalises in the TikTok app
+      media_type: "photo",
+      photo_cover_index: 0,
+      privacy_level: "PUBLIC_TO_EVERYONE",
+      allow_comment: true,
+      auto_add_music: true,
+      content_preview_confirmed: true, // TikTok legal requirement; must be true
+      express_consent_given: true, //     "
+      description: opts.content, // full caption + hashtags, up to 4000 chars
+    };
+  }
+
   if (opts.mode === "now") {
     body.publishNow = true;
   } else if (opts.mode === "schedule") {
@@ -106,6 +139,13 @@ export async function createPost(opts: {
   } else {
     body.isDraft = true;
   }
+  return body;
+}
 
-  return api<CreatedPost>("/posts", { method: "POST", body: JSON.stringify(body) }, opts.apiKey);
+export async function createPost(opts: PostSpec): Promise<CreatedPost> {
+  return api<CreatedPost>(
+    "/posts",
+    { method: "POST", body: JSON.stringify(buildPostBody(opts)) },
+    opts.apiKey,
+  );
 }

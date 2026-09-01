@@ -21,7 +21,13 @@ sometimes it needs a new house style and/or a new genre value. The **wuxia** lin
   `scheduled`, `cadence.time` is the publish time and the trigger must run a few
   hours earlier (see `docs/deploy-vps.md`).
 - **Publish target** — an Instagram (or TikTok) `accountId` already connected in
-  Zernio. Reuse `@bennysynthwork` to test, swap later.
+  Zernio. Reuse `@bennysynthwork` to test, swap later. **Instagram** auto-publishes
+  (draft / scheduled / now all work headless). **TikTok** photo carousels always go
+  via **Creator Inbox** (`tiktokSettings.draft: true`) — TikTok's direct photo-post
+  API is audit-gated and often at capacity, so the reliable path is: the run
+  delivers the post to the account's TikTok inbox and a human taps "Post" once in
+  the app (caption + photos already attached). So a `scheduled` tenant is fully
+  hands-off on IG but needs one tap per episode on TikTok.
 - **Which Zernio account** — by default every tenant publishes with the shared
   `ZERNIO_API_KEY`. To give a line its own Zernio account (separate billing /
   account limits / isolation), set `ZERNIO_API_KEY_<TENANT_ID>` in `.env` (id
