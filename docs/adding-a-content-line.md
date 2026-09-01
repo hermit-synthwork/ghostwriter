@@ -18,6 +18,12 @@ sometimes it needs a new house style and/or a new genre value. The **wuxia** lin
   look and engagement are established.
 - **Publish target** — an Instagram (or TikTok) `accountId` already connected in
   Zernio. Reuse `@bennysynthwork` to test, swap later.
+- **Which Zernio account** — by default every tenant publishes with the shared
+  `ZERNIO_API_KEY`. To give a line its own Zernio account (separate billing /
+  account limits / isolation), set `ZERNIO_API_KEY_<TENANT_ID>` in `.env` (id
+  uppercased, non-alphanumeric → `_`, e.g. `ZERNIO_API_KEY_WUXIA`). `publishEpisode`
+  picks it up automatically; the target `accountId` in the tenant row must be an
+  account connected inside *that* Zernio.
 
 ## 1. Style assets — `styles/<key>/`
 

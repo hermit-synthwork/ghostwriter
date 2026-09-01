@@ -3,16 +3,40 @@ import { requireEnv } from "./env.ts";
 const BASE = "https://zernio.com/api/v1";
 
 const KEY_HINT =
-  "Create one in the Zernio dashboard → API Keys. Var: ZERNIO_API_KEY";
+  "Create one in the Zernio dashboard → API Keys.";
 
-function auth(): string {
-  return `Bearer ${requireEnv("ZERNIO_API_KEY", KEY_HINT)}`;
+/** Env-var name for a tenant's dedicated Zernio account key: `ZERNIO_API_KEY_<ID>`,
+ *  tenant id uppercased with every non-alphanumeric run collapsed to `_`. */
+export function zernioKeyVar(tenantId: string): string {
+  return `ZERNIO_API_KEY_${tenantId.toUpperCase().replace(/[^A-Z0-9]+/g, "_")}`;
 }
 
-async function api<T>(path: string, init: RequestInit): Promise<T> {
+/** Resolve the Zernio key for a tenant: its dedicated key if `ZERNIO_API_KEY_<ID>`
+ *  is set, otherwise the shared `ZERNIO_API_KEY`. Returns the chosen var name too so
+ *  callers can report which one to set. Throws (key-last) when neither exists. */
+export function resolveZernioKey(
+  tenantId: string,
+  env: Record<string, string | undefined> = process.env,
+): { varName: string; key: string } {
+  const dedicated = zernioKeyVar(tenantId);
+  const d = env[dedicated];
+  if (d && d.trim()) return { varName: dedicated, key: d.trim() };
+  const shared = env.ZERNIO_API_KEY;
+  if (shared && shared.trim()) return { varName: "ZERNIO_API_KEY", key: shared.trim() };
+  throw new Error(
+    `Missing Zernio credential for tenant "${tenantId}": set ${dedicated} ` +
+      `(a dedicated Zernio account) or ZERNIO_API_KEY (shared). ${KEY_HINT}`,
+  );
+}
+
+function auth(apiKey?: string): string {
+  return `Bearer ${apiKey ?? requireEnv("ZERNIO_API_KEY", `${KEY_HINT} Var: ZERNIO_API_KEY`)}`;
+}
+
+async function api<T>(path: string, init: RequestInit, apiKey?: string): Promise<T> {
   const res = await fetch(BASE + path, {
     ...init,
-    headers: { Authorization: auth(), "Content-Type": "application/json", ...(init.headers ?? {}) },
+    headers: { Authorization: auth(apiKey), "Content-Type": "application/json", ...(init.headers ?? {}) },
   });
   const text = await res.text();
   if (!res.ok) {
@@ -31,11 +55,12 @@ export async function uploadImage(
   bytes: Buffer,
   filename: string,
   contentType = "image/jpeg",
+  apiKey?: string,
 ): Promise<string> {
   const { uploadUrl, publicUrl } = await api<Presign>("/media/presign", {
     method: "POST",
     body: JSON.stringify({ filename, contentType }),
-  });
+  }, apiKey);
   const put = await fetch(uploadUrl, {
     method: "PUT",
     body: new Uint8Array(bytes),
@@ -60,6 +85,7 @@ export async function createPost(opts: {
   platform: string;
   accountId: string;
   mode: PublishMode;
+  apiKey?: string;
 }): Promise<CreatedPost> {
   const body: Record<string, unknown> = {
     content: opts.content,
@@ -69,5 +95,5 @@ export async function createPost(opts: {
   if (opts.mode === "now") body.publishNow = true;
   else body.isDraft = true;
 
-  return api<CreatedPost>("/posts", { method: "POST", body: JSON.stringify(body) });
+  return api<CreatedPost>("/posts", { method: "POST", body: JSON.stringify(body) }, opts.apiKey);
 }
