@@ -36,13 +36,19 @@ function imageRef(path: string): RefImage {
  * Pure prompt builder for a single story panel. Kept assertion-locked by
  * test/art-prompt.test.ts — do not change the wording without updating that test.
  */
-export function buildPanelPrompt(styleBible: string, story: Story, panel: Panel): string {
+export function buildPanelPrompt(
+  styleBible: string,
+  story: Story,
+  panel: Panel,
+  language?: string,
+): string {
   const present = panel.characters.length
     ? `Characters present (match the model sheet exactly): ${panel.characters.join(", ")}.`
     : "No characters in frame.";
+  const cjk = !!language && language.startsWith("zh");
   const sfx = panel.sfx
-    ? ` Integrate a single hand-drawn comic SFX word "${panel.sfx}" into the illustration.`
-    : "";
+    ? ` Integrate exactly one hand-drawn comic SFX word "${panel.sfx}"${cjk ? " written in Simplified Chinese" : ""} into the illustration — and no other text.`
+    : " Add no lettering of any kind: no sound-effect words, no onomatopoeia, no signage, no captions.";
   return (
     styleBible +
     "\n\nRender in exactly this house style. Comic panel illustration only — " +
@@ -50,7 +56,8 @@ export function buildPanelPrompt(styleBible: string, story: Story, panel: Panel)
     `PANEL ${panel.n} of ${story.panels.length} — ${story.genre} story "${story.title}".\n` +
     `Scene: ${panel.scene}\nCamera: ${panel.camera}\n${present}\n` +
     "Composition: keep faces and key action within the central vertical 80%. " +
-    "Keep the top ~18% and bottom ~22% visually calm (plain wall, sky, floor or shadow) for caption bars." +
+    "Keep the top ~20% and bottom ~28% visually calm (plain wall, sky, floor or shadow) — " +
+    "speech and caption bars are composited into those bands afterwards." +
     sfx
   );
 }
@@ -113,7 +120,7 @@ async function generatePanels(
       console.log(`• panel ${panel.n}: exists, skipping`);
       continue;
     }
-    const prompt = buildPanelPrompt(style.bible, story, panel);
+    const prompt = buildPanelPrompt(style.bible, story, panel, tenant.language);
     console.log(`• panel ${panel.n}/${story.panels.length}: generating`);
     const { png } = await generateImage(prompt, refs, "9:16", undefined);
     writeFileSync(dest, png);

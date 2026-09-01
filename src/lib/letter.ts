@@ -140,20 +140,12 @@ function narrationBox(
   );
 }
 
-function speechBubble(
-  speaker: string,
-  text: string,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  tokens: StyleTokens,
-  lang?: string,
-): El {
-  const maxW = Math.min(560, w - MARGIN * 2);
-  // clamp so the bubble stays fully on-frame
-  const cx = Math.max(MARGIN + maxW / 2, Math.min(w - MARGIN - maxW / 2, x * w));
-  const cy = Math.max(140, Math.min(h - 200, y * h));
+/**
+ * One speech bubble (speaker label + rounded bubble). Carries no position —
+ * `dialogueBand` stacks these inside a reserved top/bottom band so nothing
+ * ever lands over a face or the key action.
+ */
+function speechBubble(speaker: string, text: string, maxW: number, tokens: StyleTokens, lang?: string): El {
   return el(
     "div",
     {
@@ -161,10 +153,7 @@ function speechBubble(
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        position: "absolute",
-        left: cx - maxW / 2,
-        top: cy,
-        width: maxW,
+        maxWidth: maxW,
       },
     },
     speaker
@@ -205,6 +194,40 @@ function speechBubble(
   );
 }
 
+/**
+ * Stack every speech bubble of a panel inside one reserved band. Band choice:
+ * opposite to a narration box if the panel has one, else the top/bottom hinted
+ * by the first bubble_pos y. Bubbles never float over the central art.
+ */
+function dialogueBand(
+  dialogue: NonNullable<Panel["dialogue"]>,
+  w: number,
+  tokens: StyleTokens,
+  topNarr: boolean,
+  botNarr: boolean,
+  lang?: string,
+): El {
+  const hintY = dialogue[0]?.bubble_pos?.[1] ?? 0.9;
+  const band: "top" | "bottom" = botNarr ? "top" : topNarr ? "bottom" : hintY < 0.4 ? "top" : "bottom";
+  const maxW = Math.min(760, w - MARGIN * 2);
+  return el(
+    "div",
+    {
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 14,
+        position: "absolute",
+        left: MARGIN,
+        width: w - MARGIN * 2,
+        ...(band === "top" ? { top: topNarr ? 300 : 128 } : { bottom: botNarr ? 300 : 128 }),
+      },
+    },
+    ...dialogue.map((d) => speechBubble(d.speaker ?? "", d.text, maxW, tokens, lang)),
+  );
+}
+
 /* ----------------------------- render ----------------------------- */
 
 export async function renderOverlaySvg(
@@ -227,15 +250,16 @@ export async function renderOverlaySvg(
     ),
   );
 
+  const topNarr = !!panel.narration && (panel.narration_pos ?? "top") === "top";
+  const botNarr = !!panel.narration && panel.narration_pos === "bottom";
+
   if (panel.narration) {
-    const atTop = (panel.narration_pos ?? "top") === "top";
-    children.push(narrationBox(panel.narration, atTop, w, h, bottomSafe, tokens, brand.lang));
+    children.push(narrationBox(panel.narration, topNarr, w, h, bottomSafe, tokens, brand.lang));
   }
 
-  for (const d of panel.dialogue ?? []) {
-    children.push(
-      speechBubble(d.speaker ?? "", d.text, d.bubble_pos[0], d.bubble_pos[1], w, h, tokens, brand.lang),
-    );
+  const dl = panel.dialogue ?? [];
+  if (dl.length) {
+    children.push(dialogueBand(dl, w, tokens, topNarr, botNarr, brand.lang));
   }
 
   // watermark — always rendered

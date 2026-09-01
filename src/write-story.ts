@@ -31,7 +31,7 @@ Return exactly this shape (no markdown fence, no prose):
   "caption": "hook line + 1-2 line tease + soft follow CTA, no spoiler",
   "hashtags": ["6-12 single-word tags, no spaces, no # prefix, mix broad + niche"]
 }
-bubble_pos = [x,y] fractions 0..1; keep important bubbles between y 0.18 and 0.78.`;
+bubble_pos = [x,y] fractions 0..1. Dialogue is composited into the calm top or bottom band, never over the art: set y ≈ 0.12 for the top band or y ≈ 0.88 for the bottom band — pick the band that is clear of the panel's main subject and opposite to any narration on that panel. x is a left/right lean only.`;
 
 export interface StoryInput {
   genre: "funny" | "horror" | "wuxia";
