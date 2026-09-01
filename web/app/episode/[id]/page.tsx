@@ -60,7 +60,7 @@ export default async function EpisodePage({ params }: { params: Promise<{ id: st
           <p className="text-xs font-medium text-zinc-500">Caption</p>
           <p className="mt-1 whitespace-pre-wrap text-sm text-zinc-300">{e.caption || <span className="text-zinc-600">—</span>}</p>
           {e.hashtags.length > 0 && (
-            <p className="mt-2 text-xs text-zinc-500">{e.hashtags.map((h) => `#${h}`).join(" ")}</p>
+            <p className="mt-2 text-xs text-zinc-500">{e.hashtags.map((h) => `#${h.replace(/^#+/, "")}`).join(" ")}</p>
           )}
           <p className="mt-2 text-xs text-zinc-600">Read-only — actions are only available while an episode is <em>ready</em>.</p>
         </section>

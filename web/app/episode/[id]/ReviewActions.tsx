@@ -19,7 +19,7 @@ export function ReviewActions({
           />
         </label>
         {hashtags.length > 0 && (
-          <p className="text-xs text-zinc-500">{hashtags.map((h) => `#${h}`).join(" ")}</p>
+          <p className="text-xs text-zinc-500">{hashtags.map((h) => `#${h.replace(/^#+/, "")}`).join(" ")}</p>
         )}
         <div className="flex flex-wrap gap-2">
           <Submit
