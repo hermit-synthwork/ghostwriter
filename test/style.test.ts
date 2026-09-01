@@ -42,3 +42,7 @@ test("resolveStyle returns bible + tokens for wuxia-manhua", () => {
   assert.equal(s.tokens.paper, "#EDE3D1");
   assert.equal(s.tokens.accent, "#B83B24");
 });
+
+test("wuxia-manhua has a committed style-ref", () => {
+  assert.equal(resolveStyle("wuxia-manhua").hasRef, true);
+});
