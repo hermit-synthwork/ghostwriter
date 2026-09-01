@@ -8,6 +8,13 @@
       "when": 1788184236274,
       "tag": "0000_happy_annihilus",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788249932130,
+      "tag": "0001_furry_sheva_callister",
+      "breakpoints": true
     }
   ]
 }

@@ -17,3 +17,10 @@ test("episode_status enum has the 7 states", async () => {
   const rows = await testDb.execute(sql`select enum_range(null::episode_status) as r`);
   assert.match(String(rows[0]!.r), /generating.*ready.*approved.*scheduled.*posted.*failed.*rejected/);
 });
+
+test("genre + genres enums include wuxia", async () => {
+  const rows = await testDb.execute(sql`
+    select enum_range(null::genre) as g, enum_range(null::genres) as gs`);
+  assert.match(String(rows[0]!.g), /wuxia/);
+  assert.match(String(rows[0]!.gs), /wuxia/);
+});
