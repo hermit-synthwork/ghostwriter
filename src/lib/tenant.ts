@@ -1,9 +1,6 @@
-import { readFileSync, readdirSync, existsSync } from "node:fs";
-import { join } from "node:path";
-import { REPO_ROOT } from "./env.ts";
-import type { Story } from "./story.ts";
-
-export const TENANTS_DIR = join(REPO_ROOT, "tenants");
+import { eq } from "drizzle-orm";
+import { db } from "../db/client.ts";
+import { tenant, type TenantRow } from "../db/schema.ts";
 
 export interface PublishTarget { accountId: string; handle: string; format: "4x5" | "9x16" }
 export interface Cadence { days: number[]; time: string; tz: string }
@@ -17,46 +14,6 @@ export interface TenantConfig {
   cadence: Cadence;
   publish: { instagram?: PublishTarget; tiktok?: PublishTarget };
   geminiKey?: string;
-}
-
-export function loadTenant(id: string): TenantConfig {
-  if (!/^[A-Za-z0-9_-]+$/.test(id)) throw new Error(`unsafe tenant id: ${id}`);
-  const path = join(TENANTS_DIR, `${id}.json`);
-  if (!existsSync(path)) throw new Error(`No tenant "${id}" at ${path}`);
-  const t = JSON.parse(readFileSync(path, "utf8")) as TenantConfig;
-  if (t.id !== id) throw new Error(`Tenant file ${id}.json has mismatched id "${t.id}"`);
-  return t;
-}
-
-/**
- * Synthesise a TenantConfig for local single-episode dev (`npm run art`).
- * Reads `tenants/local.json` if present (merged over the defaults so a partial
- * file works), otherwise returns a built-in default. `id: "local"` is already
- * filesystem-safe, so no sanitising is needed.
- */
-export function loadLocalTenant(story: Story): TenantConfig {
-  const defaults: TenantConfig = {
-    id: "local",
-    displayName: "GHOSTWRITER",
-    styleKey: story.styleKey ?? "graphic-novel-noir",
-    niche: "everyday life with a strange edge",
-    genres: "both",
-    autonomy: "review_each",
-    cadence: { days: [1, 3, 5], time: "09:00", tz: "Asia/Singapore" },
-    publish: {},
-    geminiKey: undefined,
-  };
-  const path = join(TENANTS_DIR, "local.json");
-  if (!existsSync(path)) return defaults;
-  const override = JSON.parse(readFileSync(path, "utf8")) as Partial<TenantConfig>;
-  return { ...defaults, ...override, id: "local" };
-}
-
-export function listTenants(): TenantConfig[] {
-  if (!existsSync(TENANTS_DIR)) return [];
-  return readdirSync(TENANTS_DIR)
-    .filter((f) => f.endsWith(".json") && f !== "local.json")
-    .map((f) => loadTenant(f.replace(/\.json$/, "")));
 }
 
 export function localParts(now: Date, tz: string): { weekday: number; hhmm: string; date: string } {
@@ -79,4 +36,24 @@ export function isDue(t: TenantConfig, now: Date, lastEpisodeDate: string | null
   if (hhmm < t.cadence.time) return false;
   if (lastEpisodeDate === date) return false;
   return true;
+}
+
+function toConfig(r: TenantRow): TenantConfig {
+  return {
+    id: r.id, displayName: r.displayName, styleKey: r.styleKey, niche: r.niche,
+    genres: r.genres, autonomy: r.autonomy, cadence: r.cadence,
+    publish: r.publish, geminiKey: undefined, // BYO wired in sub-project B
+  };
+}
+
+export async function listActiveTenants(): Promise<TenantConfig[]> {
+  const rows = await db.select().from(tenant).where(eq(tenant.active, true));
+  return rows.map(toConfig);
+}
+
+export async function getTenant(id: string): Promise<TenantConfig> {
+  if (!/^[a-z0-9-]+$/.test(id)) throw new Error(`unsafe tenant id: ${id}`);
+  const [r] = await db.select().from(tenant).where(eq(tenant.id, id)).limit(1);
+  if (!r) throw new Error(`no tenant "${id}"`);
+  return toConfig(r);
 }

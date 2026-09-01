@@ -3,30 +3,34 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Claude Code pipeline that writes original funny/horror short stories and renders them as illustrated comic-panel carousels (4:5 + 9:16) for TikTok/IG, with a local review gate.",
+  "description": "Claude Code pipeline that writes original funny/horror short stories and renders them as illustrated comic-panel carousels (4:5 + 9:16) for TikTok/IG.",
   "scripts": {
-    "art": "tsx src/gen-art.ts",
-    "compose": "tsx src/compose.ts",
-    "review": "tsx src/build-review.ts",
-    "approve": "tsx src/approve.ts",
-    "publish": "tsx src/publish.ts",
     "smoke": "tsx src/gemini.ts --smoke",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test test/**/*.test.ts",
+    "test": "node --import tsx --test --test-force-exit --test-concurrency=1 test/**/*.test.ts",
     "run": "tsx src/run.ts",
-    "story": "tsx src/write-story.ts"
+    "story": "tsx src/write-story.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:migrate:test": "MIGRATE_TARGET=test drizzle-kit migrate",
+    "db:seed": "tsx src/db/seed.ts",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",
     "@fontsource/bangers": "^5.1.0",
     "@fontsource/comic-neue": "^5.1.0",
     "@google/genai": "^1.0.0",
+    "@vercel/blob": "^2.8.0",
+    "drizzle-orm": "^0.45.2",
+    "postgres": "^3.4.9",
     "satori": "^0.12.0",
     "sharp": "^0.35.4"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/react": "^18.3.0",
+    "drizzle-kit": "^0.31.10",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0"
   }

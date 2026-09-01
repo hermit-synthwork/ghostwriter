@@ -1,11 +1,8 @@
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
-import sharp from "sharp";
 import { requireEnv } from "../lib/env.ts";
-import { panelFile, type Story, type Status } from "../lib/story.ts";
 import { uploadImage, createPost, type PublishMode } from "../lib/zernio.ts";
 import { logUsage } from "../lib/usage.ts";
-import type { TenantConfig } from "../lib/tenant.ts";
+import { getEpisode, setEpisodeStatus } from "../db/episodes.ts";
+import { getTenant, type TenantConfig } from "../lib/tenant.ts";
 
 export type { PublishMode };
 
@@ -31,120 +28,89 @@ export function selectTargets(tenant: TenantConfig, only?: string | null): PubTa
   return one;
 }
 
-/** Convert one format's final panels to JPEG and upload them; returns the media URLs. */
-async function jpegPanels(
-  episodeDir: string,
-  slug: string,
-  panels: number[],
-  format: string,
-): Promise<string[]> {
-  const srcDir = join(episodeDir, "panels", `final-${format}`);
-  const urls: string[] = [];
-  for (const n of panels) {
-    const src = join(srcDir, panelFile(n));
-    if (!existsSync(src)) {
-      throw new Error(`Missing ${format} panel: ${src}. Run  npm run compose ${slug}.`);
-    }
-    const jpg = await sharp(readFileSync(src))
-      .jpeg({ quality: 90, chromaSubsampling: "4:4:4" })
-      .toBuffer();
-    urls.push(await uploadImage(jpg, `${slug}-${format}-${panelFile(n).replace(".png", ".jpg")}`));
-    console.log(`    panel ${n} (${(jpg.length / 1024).toFixed(0)} KB)`);
-  }
-  return urls;
-}
-
 /**
- * Publish one approved episode's carousel to every platform configured in
- * `tenant.publish` (or just `only`, when given).
+ * Publish one approved episode's carousel to every platform configured in the
+ * tenant's `publish` block (or just `only`, when given). Reads the episode +
+ * tenant from Neon and the composed panel JPEGs from the Blob URLs on
+ * `episode.panelUrls` — nothing touches the filesystem.
  *
  *   mode "draft" → create a draft post per platform in Zernio (safe default)
- *   mode "now"   → publish immediately and flip status.json to "posted"
+ *   mode "now"   → publish immediately and flip the episode row to "posted"
  *
- * `ZERNIO_API_KEY` is a platform-level credential (key-last: this exits with a
- * clear message if it is missing). Panels of the same format are uploaded once
- * and shared across platforms.
+ * `ZERNIO_API_KEY` is a platform-level credential (key-last: this throws a
+ * clear message if it is missing). Panels of the same format are fetched +
+ * uploaded to Zernio once and shared across platforms.
  */
 export async function publishEpisode(
-  tenant: TenantConfig,
-  episodeDir: string,
-  story: Story,
+  tenantId: string,
+  episodeId: string,
   mode: PublishMode,
   only?: string | null,
 ): Promise<{ platform: string; handle: string; postId: string }[]> {
   requireEnv("ZERNIO_API_KEY", "Create one in the Zernio dashboard → API Keys. Var: ZERNIO_API_KEY");
 
+  const tenant = await getTenant(tenantId);
+  const ep = await getEpisode(episodeId);
+
+  if (ep.status !== "approved" && ep.status !== "posted") {
+    throw new Error(`episode ${episodeId} is not approved (status: ${ep.status})`);
+  }
+
+  const content = `${ep.caption}\n\n${ep.hashtags.join(" ")}`.trim();
   const targets = selectTargets(tenant, only);
-
-  const statusPath = join(episodeDir, "status.json");
-  const status = existsSync(statusPath)
-    ? (JSON.parse(readFileSync(statusPath, "utf8")) as Status)
-    : null;
-  if (status?.status !== "approved" && status?.status !== "posted") {
-    throw new Error(
-      `Episode "${story.slug}" is not approved (status: ${status?.status ?? "none"}). ` +
-        `Run  npm run approve ${story.slug}  first.`,
-    );
-  }
-  if (story.panels.length < 2 || story.panels.length > 10) {
-    throw new Error(`Carousels need 2-10 images (episode has ${story.panels.length}).`);
-  }
-  if (!existsSync(join(episodeDir, "caption.txt"))) {
-    throw new Error(`No caption.txt. Run  npm run review ${story.slug}.`);
-  }
-
-  const content = readFileSync(join(episodeDir, "caption.txt"), "utf8").trim();
-  const panelNums = story.panels.map((p) => p.n);
-  const uploadCache = new Map<string, string[]>(); // format → media urls
+  const uploadCache = new Map<string, string[]>(); // format → Zernio media urls
   const results: { platform: string; handle: string; postId: string }[] = [];
 
   console.log(
-    `\nGhostwriter · publish · ${story.slug} → ${targets.map((t) => t.platform).join(", ")} (${mode})\n`,
+    `\nGhostwriter · publish · ${ep.slug} → ${targets.map((t) => t.platform).join(", ")} (${mode})\n`,
   );
 
-  for (const t of targets) {
-    console.log(`• ${t.platform} / @${t.handle}  (${t.format})`);
-    let urls = uploadCache.get(t.format);
-    if (!urls) {
-      urls = await jpegPanels(episodeDir, story.slug, panelNums, t.format);
-      uploadCache.set(t.format, urls);
-    } else {
-      console.log(`    reusing ${t.format} uploads`);
+  for (const target of targets) {
+    console.log(`• ${target.platform} / @${target.handle}  (${target.format})`);
+
+    const panelUrls = ep.panelUrls?.[target.format];
+    if (!panelUrls?.length) {
+      throw new Error(`episode ${episodeId} has no composed panels for ${target.format}`);
     }
+
+    let mediaUrls = uploadCache.get(target.format);
+    if (!mediaUrls) {
+      mediaUrls = [];
+      for (const [i, url] of panelUrls.entries()) {
+        const res = await fetch(url);
+        if (!res.ok) {
+          throw new Error(`fetch panel ${i + 1} (${target.format}) → ${res.status}: ${url}`);
+        }
+        const buf = Buffer.from(await res.arrayBuffer());
+        const name = `${ep.slug}-${target.format}-${String(i + 1).padStart(2, "0")}.jpg`;
+        mediaUrls.push(await uploadImage(buf, name));
+        console.log(`    panel ${i + 1} (${(buf.length / 1024).toFixed(0)} KB)`);
+      }
+      uploadCache.set(target.format, mediaUrls);
+    } else {
+      console.log(`    reusing ${target.format} uploads`);
+    }
+
     const created = await createPost({
       content,
-      mediaUrls: urls,
-      platform: t.platform,
-      accountId: t.accountId,
+      mediaUrls,
+      platform: target.platform,
+      accountId: target.accountId,
       mode,
     });
     const postId = created.post?._id ?? created._id ?? "(id not returned)";
-    results.push({ platform: t.platform, handle: t.handle, postId });
-    logUsage(tenant.id, { kind: "post", qty: 1, keyOwner: "platform" });
+    results.push({ platform: target.platform, handle: target.handle, postId });
+    await logUsage(tenantId, { episodeId, kind: "post", qty: 1, keyOwner: "platform" });
     console.log(`  → ${mode === "now" ? "published" : "draft"}: ${postId}\n`);
   }
 
   if (mode === "now") {
-    writeFileSync(
-      statusPath,
-      JSON.stringify(
-        {
-          status: "posted",
-          created: status?.created ?? new Date().toISOString(),
-          approvedAt: status?.approvedAt,
-          postedAt: new Date().toISOString(),
-          posts: results,
-        },
-        null,
-        2,
-      ) + "\n",
-    );
+    await setEpisodeStatus(episodeId, "posted", { postedAt: new Date(), posts: results });
     console.log("✓ published:");
     for (const r of results) console.log(`  ${r.platform}  @${r.handle}  ${r.postId}`);
     console.log("\n  verify: open each profile and hard-refresh.\n");
   } else {
-    console.log("✓ drafts created in Zernio — review + publish there, or:");
-    console.log(`  npm run publish ${story.slug} -- --now\n`);
+    console.log("✓ drafts created in Zernio — review + publish there.\n");
   }
 
   return results;

@@ -2,12 +2,7 @@ node_modules/
 .env
 .env.local
 *.log
-episodes/*/*/panels/
-episodes/*/*/character-sheet.png
-episodes/*/*/review.html
-episodes/*/*/upload/
+.cache/
 assets/smoke.png
 .DS_Store
 .superpowers/
-usage/
-tenants/local.json
