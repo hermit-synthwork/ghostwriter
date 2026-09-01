@@ -94,7 +94,7 @@ export async function runDueTenants(opts: {
         const t = await getTenant(item.tenantId);
         const recent = await recentEpisodes(t.id, 5);
         const { story, usageTokens } = await writeStory({
-          genre: item.genre, niche: t.niche, styleKey: t.styleKey,
+          genre: item.genre, niche: t.niche, styleKey: t.styleKey, language: t.language,
           priorTitles: recent.map((r) => r.title),
         });
         const ep = await createEpisode(t.id, story);

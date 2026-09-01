@@ -37,7 +37,26 @@ export interface StoryInput {
   genre: "funny" | "horror" | "wuxia";
   niche: string;
   styleKey: string;
+  /** BCP-47-ish tenant language. Missing / "en" = English. "zh-Hans" = Simplified Chinese. */
+  language?: string;
   priorTitles: string[];
+}
+
+/** Reader-facing text goes in the tenant's language; art-direction fields stay English. */
+function languageBlock(language: string | undefined): string {
+  if (!language || language === "en" || language.startsWith("en-")) return "";
+  if (language === "zh-Hans" || language === "zh" || language.startsWith("zh-")) {
+    return (
+      `\n\nLANGUAGE: Write every reader-facing string in Simplified Chinese (简体中文) — ` +
+      `"title", "logline", every "dialogue.text", every "narration", "caption", and all ` +
+      `"hashtags" (Chinese tags, no # prefix, no spaces). Keep these in English, they are ` +
+      `art direction the reader never sees: "slug" (ASCII kebab-case, transliterate or ` +
+      `translate the title), every "scene", every "camera", and each cast member's ` +
+      `"description" and "visual_tags". Chinese is dense — cap "dialogue.text" at about 18 ` +
+      `characters, "narration" at about 34, "caption" at about 120.`
+    );
+  }
+  return `\n\nLANGUAGE: Write every reader-facing string ("title", "logline", "dialogue.text", "narration", "caption", "hashtags") in the language tagged "${language}". Keep "slug", "scene", "camera", and cast "description"/"visual_tags" in English.`;
 }
 
 export function buildStoryMessages(input: StoryInput): { system: string; user: string } {
@@ -49,7 +68,8 @@ export function buildStoryMessages(input: StoryInput): { system: string; user: s
   const user =
     `Genre: ${input.genre}\nDate for the "date" field: ${today}\n` +
     `Account niche (every story must fit this): ${input.niche}\n\n` +
-    `The art will be drawn in this house style — keep scenes achievable in it:\n\n${style.bible}${avoid}`;
+    `The art will be drawn in this house style — keep scenes achievable in it:\n\n${style.bible}` +
+    languageBlock(input.language) + avoid;
   return { system: SYSTEM, user };
 }
 
@@ -102,6 +122,7 @@ if (process.argv[1]?.endsWith("write-story.ts")) {
     genre: (arg("genre") as "funny" | "horror" | "wuxia") ?? "horror",
     niche: arg("niche") ?? "everyday life with a strange edge",
     styleKey: arg("style") ?? "graphic-novel-noir",
+    language: arg("lang") ?? "en",
     priorTitles: [],
   });
   process.stdout.write(JSON.stringify(story, null, 2) + "\n");
