@@ -14,8 +14,13 @@ const wuxia = {
   language: "zh-Hans" as const,
   niche: "Self-contained wuxia vignettes in a nameless ancient jianghu — the world of rivers and lakes, where wandering swordsmen, sworn siblings, and rival sects settle debts of honour. Each episode is one clean turn or reveal: a duel decided on a rope bridge or a teahouse floor, a betrayal uncovered, a master's dying request answered, a years-long revenge collected, a stolen manual returned. Xianxia flavour is seasoning, never a system to explain — qi cultivation and a hard-won breakthrough, a sworn immortal repaying a favour, a spirit beast, a blade that hums. Fresh cast every episode, no recurring characters. Action is stylized and bloodless: implied strikes, wire-fu leaps, a fallen opponent, never gore or wounds. Grounded and unironic in tone; PG-13. Original characters and stories only — no real people, films, novels, manhua, or artists.",
   genres: "wuxia" as const, autonomy: "review_each" as const,
-  cadence: { days: [0, 2, 4, 6], time: "09:00", tz: "Asia/Singapore" },
-  publish: { instagram: { accountId: "6a911cf277555aae013ed010", handle: "bennysynthwork", format: "4x5" as const } },
+  // Mon/Wed/Fri — 3x/week, offset from singlish's Sun/Tue/Thu/Sat.
+  cadence: { days: [1, 3, 5], time: "09:00", tz: "Asia/Singapore" },
+  // Its own Zernio account — publish resolves ZERNIO_API_KEY_WUXIA (see .env.example).
+  publish: {
+    instagram: { accountId: "6a96b3ca77555aae018e88dd", handle: "manhuajianghuart", format: "4x5" as const },
+    tiktok: { accountId: "6a96b18077555aae018e18ec", handle: "manhuajianghu", format: "9x16" as const },
+  },
 };
 
 await db.insert(tenant).values([
