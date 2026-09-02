@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { auth } from "@clerk/nextjs/server";
 import { getEpisodeWithTenant } from "@/lib/episodes";
 import type { StoryJson } from "@/lib/db";
 import { StatusChip, GenreChip, relTime } from "../../ui";
@@ -10,7 +11,11 @@ export const dynamic = "force-dynamic";
 
 export default async function EpisodePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const e = await getEpisodeWithTenant(id);
+  const { userId } = await auth();
+  if (!userId) notFound();
+  // Scoped by owner: an episode belonging to someone else 404s rather than
+  // leaking its title through the "exists but forbidden" distinction.
+  const e = await getEpisodeWithTenant(id, userId);
   if (!e) notFound();
 
   const story = e.storyJson as StoryJson;
