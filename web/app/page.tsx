@@ -1,11 +1,14 @@
 import Link from "next/link";
+import { auth } from "@clerk/nextjs/server";
 import { listEpisodes, type EpisodeWithTenant } from "@/lib/episodes";
 import { StatusChip, GenreChip, relTime } from "./ui";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const episodes = await listEpisodes();
+  const { userId } = await auth();
+  if (!userId) return null; // proxy.ts redirects first; this satisfies the type
+  const episodes = await listEpisodes(userId);
   const needsReview = episodes.filter((e) => e.status === "ready");
   const approved = episodes.filter((e) => e.status === "approved");
   const scheduled = episodes.filter((e) => e.status === "scheduled");
