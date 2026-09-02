@@ -5,7 +5,12 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 const isPublicRoute = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)"]);
 
 export default clerkMiddleware(async (auth, req) => {
-  if (!isPublicRoute(req)) await auth.protect();
+  if (isPublicRoute(req)) return;
+  // Redirect explicitly rather than relying on auth.protect(), which falls back
+  // to a 404 when it can't resolve a sign-in destination — the app has no local
+  // /sign-in route, so sign-in lives on the Clerk accounts portal.
+  const { isAuthenticated, redirectToSignIn } = await auth();
+  if (!isAuthenticated) return redirectToSignIn({ returnBackUrl: req.url });
 });
 
 export const config = {
