@@ -1,10 +1,10 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getEpisodeWithTenant } from "@/lib/episodes";
 import type { StoryJson } from "@/lib/db";
 import { StatusChip, GenreChip, relTime } from "../../ui";
 import { PanelViewer } from "./PanelViewer";
 import { ReviewActions } from "./ReviewActions";
+import { BackBar } from "./BackBar";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +18,7 @@ export default async function EpisodePage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="space-y-6">
-      <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-300">&larr; all episodes</Link>
+      <BackBar />
 
       <header className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
