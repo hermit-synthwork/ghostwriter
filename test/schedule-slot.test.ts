@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { scheduleSlot, zonedWallClockToUtc } from "../src/run.ts";
+import { scheduleSlot, zonedWallClockToUtc } from "../src/lib/schedule.ts";
 import type { TenantConfig } from "../src/lib/tenant.ts";
 
 const t: TenantConfig = {
