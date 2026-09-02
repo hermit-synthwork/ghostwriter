@@ -164,8 +164,11 @@ function speechBubble(speaker: string, text: string, maxW: number, tokens: Style
               display: "flex",
               fontFamily: displayFace(lang),
               fontSize: isCjk(lang) ? 28 : 22,
+              background: tokens.ink,
               color: tokens.accent,
               letterSpacing: isCjk(lang) ? 0 : 1,
+              padding: "2px 12px",
+              borderRadius: 6,
               marginBottom: 4,
             },
           },
@@ -207,8 +210,10 @@ function dialogueBand(
   botNarr: boolean,
   lang?: string,
 ): El {
-  const hintY = dialogue[0]?.bubble_pos?.[1] ?? 0.9;
-  const band: "top" | "bottom" = botNarr ? "top" : topNarr ? "bottom" : hintY < 0.4 ? "top" : "bottom";
+  // The art model keeps the bottom band calm but routinely composes heads into the
+  // top ~20%, so bubbles hinted there still land on faces. Always prefer the bottom;
+  // only go top when a narration box already owns it. bubble_pos y is ignored.
+  const band: "top" | "bottom" = botNarr ? "top" : "bottom";
   const maxW = Math.min(760, w - MARGIN * 2);
   return el(
     "div",

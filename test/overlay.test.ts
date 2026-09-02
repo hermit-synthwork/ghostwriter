@@ -42,3 +42,38 @@ test("a zh-Hans brand renders Chinese lettering as glyph paths", async () => {
   const bare = await renderOverlaySvg({ ...cnPanel, narration: null, dialogue: [] }, story, { ...brand, lang: "zh-Hans" }, size);
   assert.ok(svg.length > bare.length + 500);
 });
+
+/** y of the speech bubble's paper-filled rounded rect (borderRadius 26). */
+function bubbleY(svg: string): number {
+  const m = svg.match(/<path x="\d+" y="(\d+)"[^>]*fill="#EDE7DB"[^>]*a26,26/);
+  assert.ok(m, "no speech bubble found in overlay");
+  return Number(m[1]);
+}
+
+test("dialogue lands in the bottom band even when bubble_pos hints the top", async () => {
+  // The art model keeps the bottom calm but composes heads into the top ~20%,
+  // so a top-hinted bubble used to cover faces. bubble_pos y is now ignored.
+  const topHinted: Panel = {
+    ...withText, narration: null,
+    dialogue: [{ speaker: "Mara", text: "Hello?", bubble_pos: [0.5, 0.15] }],
+  };
+  const y = bubbleY(await renderOverlaySvg(topHinted, story, brand, size));
+  assert.ok(y > size.h / 2, `expected bubble in bottom half, got y=${y} of ${size.h}`);
+});
+
+test("dialogue flips to the top band only when narration owns the bottom", async () => {
+  const botNarr: Panel = {
+    ...withText, narration: "She should not have looked back.", narration_pos: "bottom",
+    dialogue: [{ speaker: "Mara", text: "Hello?", bubble_pos: [0.5, 0.88] }],
+  };
+  const y = bubbleY(await renderOverlaySvg(botNarr, story, brand, size));
+  assert.ok(y < size.h / 2, `expected bubble in top half, got y=${y} of ${size.h}`);
+});
+
+test("the speaker label sits on a filled plate so it stays legible over dark art", async () => {
+  const svg = await renderOverlaySvg(
+    { ...withText, narration: null } as Panel, story, brand, size,
+  );
+  // ink-filled rounded rect at borderRadius 6 — the speaker chip behind "MARA"
+  assert.match(svg, /<path x="\d+" y="\d+"[^>]*fill="#0E0E10"[^>]*a6,6/);
+});

@@ -56,7 +56,7 @@ export function buildPanelPrompt(
     `PANEL ${panel.n} of ${story.panels.length} — ${story.genre} story "${story.title}".\n` +
     `Scene: ${panel.scene}\nCamera: ${panel.camera}\n${present}\n` +
     "Composition: keep faces and key action within the central vertical 80%. " +
-    "Keep the top ~20% and bottom ~28% visually calm (plain wall, sky, floor or shadow) — " +
+    "Keep the top ~28% and bottom ~28% visually calm (plain wall, sky, floor or shadow) — " +
     "speech and caption bars are composited into those bands afterwards." +
     sfx
   );
