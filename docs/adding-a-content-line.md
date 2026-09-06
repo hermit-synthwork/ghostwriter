@@ -3,12 +3,16 @@
 A "content line" = a tenant that produces carousels in a distinct look and voice.
 Sometimes it reuses an existing style + genre (just a new `niche` + publish target);
 sometimes it needs a new house style and/or a new genre value. The **wuxia** line
-(added 2026-09-01) is the worked example below — it needed both.
+(added 2026-09-01) is the worked example below — it needed both. The **anime**
+line (added 2026-09-07) is the lighter case: a new `japanese-anime` style but
+**no** new genre — it rides the existing `funny` arc, so it skipped section 2
+entirely (no schema migration, no tsc-union edits).
 
 ## 0. Decide the scope
 
-- **New style?** Yes if the visual idiom is genuinely different from the three
-  shipped ones (`graphic-novel-noir`, `manga-ink`, `retro-halftone`).
+- **New style?** Yes if the visual idiom is genuinely different from the
+  shipped ones (`graphic-novel-noir`, `manga-ink`, `retro-halftone`,
+  `wuxia-manhua`, `japanese-anime`).
 - **New genre value?** Yes if the story *shape* differs — the engine only knows
   `funny` (punchline), `horror` (dread/twist), `wuxia` (decisive turn). A line that
   is "funny but about X" is just a new `niche`, not a new genre.
