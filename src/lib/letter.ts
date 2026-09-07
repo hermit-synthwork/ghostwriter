@@ -25,6 +25,16 @@ const bodyFace = (lang?: string): string => (isCjk(lang) ? ZCOOL_KUAILE : "Comic
 /** Speech-bubble + speaker-label face: Chinese comic for zh tenants, else the Latin display face. */
 const displayFace = (lang?: string): string => (isCjk(lang) ? ZCOOL_KUAILE : "Bangers");
 
+/** `#RRGGBB` → `rgba(r, g, b, a)`. Used to render the narration box as a scrim
+ * so the artwork reads through it instead of being covered by a solid slab. */
+function hexToRgba(hex: string, alpha: number): string {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 /* ----------------------------- fonts ----------------------------- */
 
 const FONT_DIR_BANGERS = join(REPO_ROOT, "node_modules/@fontsource/bangers/files");
@@ -117,7 +127,7 @@ function narrationBox(
         left: MARGIN,
         width: w - MARGIN * 2,
         [atTop ? "top" : "bottom"]: atTop ? 120 : bottomSafe + 20,
-        background: tokens.ink,
+        background: hexToRgba(tokens.ink, 0.8),
         borderLeft: `6px solid ${tokens.accent}`,
         borderRadius: 8,
         padding: "22px 30px",
