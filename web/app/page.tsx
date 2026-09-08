@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import { listEpisodes, type EpisodeWithTenant } from "@/lib/episodes";
-import { StatusChip, GenreChip, relTime } from "./ui";
+import { StatusChip, GenreChip, publishSummary, relTime } from "./ui";
 
 export const dynamic = "force-dynamic";
 
@@ -83,8 +83,8 @@ function EpisodeCard({ e }: { e: EpisodeWithTenant }) {
           </div>
           <p className="mt-1 truncate font-medium text-zinc-100">{e.title}</p>
           <p className="mt-0.5 truncate text-sm text-zinc-400">{e.logline}</p>
-          <p className="mt-1 text-xs text-zinc-500">
-            {e.tenant.displayName} · {relTime(e.createdAt)}
+          <p className="mt-1 truncate text-xs text-zinc-500">
+            {e.tenant.displayName} → {publishSummary(e.tenant.publish)} · {relTime(e.createdAt)}
           </p>
         </div>
       </Link>
