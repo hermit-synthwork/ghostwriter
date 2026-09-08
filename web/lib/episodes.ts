@@ -3,7 +3,10 @@ import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db, episode, tenant, type EpisodeRow, type TenantRow } from "./db";
 
 export type EpisodeWithTenant = EpisodeRow & {
-  tenant: Pick<TenantRow, "id" | "displayName" | "language" | "autonomy" | "styleKey" | "cadence">;
+  tenant: Pick<
+    TenantRow,
+    "id" | "displayName" | "language" | "autonomy" | "styleKey" | "cadence" | "publish"
+  >;
 };
 
 const tenantCols = {
@@ -13,6 +16,7 @@ const tenantCols = {
   autonomy: tenant.autonomy,
   styleKey: tenant.styleKey,
   cadence: tenant.cadence,
+  publish: tenant.publish,
 };
 
 // ready first, then approved (waiting to publish), then everything else newest-first.

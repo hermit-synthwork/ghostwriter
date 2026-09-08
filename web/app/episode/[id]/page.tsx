@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
 import { getEpisodeWithTenant } from "@/lib/episodes";
 import type { StoryJson } from "@/lib/db";
-import { StatusChip, GenreChip, relTime } from "../../ui";
+import { StatusChip, GenreChip, TargetChips, relTime } from "../../ui";
 import { PanelViewer } from "./PanelViewer";
 import { ReviewActions } from "./ReviewActions";
 import { BackBar } from "./BackBar";
@@ -33,6 +33,10 @@ export default async function EpisodePage({ params }: { params: Promise<{ id: st
             {e.tenant.displayName} · {e.tenant.styleKey}
             {e.tenant.language !== "en" && ` · ${e.tenant.language}`}
           </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-zinc-500">Posts to</span>
+          <TargetChips publish={e.tenant.publish} />
         </div>
         <h1 className="text-xl font-semibold text-zinc-100">{e.title}</h1>
         <p className="text-sm text-zinc-400">{e.logline}</p>

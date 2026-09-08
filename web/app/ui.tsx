@@ -26,6 +26,42 @@ export function GenreChip({ genre }: { genre: string }) {
   );
 }
 
+type PublishTarget = { accountId: string; handle: string; format: "4x5" | "9x16" };
+export type PublishConfig = { instagram?: PublishTarget; tiktok?: PublishTarget };
+
+const at = (h: string) => `@${h.replace(/^@+/, "")}`;
+
+function publishParts(publish: PublishConfig | null | undefined): string[] {
+  const parts: string[] = [];
+  if (publish?.instagram) parts.push(`IG ${at(publish.instagram.handle)}`);
+  if (publish?.tiktok) parts.push(`TikTok ${at(publish.tiktok.handle)}`);
+  return parts;
+}
+
+/** "IG @bennysynthwork · TikTok @manhuajianghu" — where this episode gets posted. */
+export function publishSummary(publish: PublishConfig | null | undefined): string {
+  return publishParts(publish).join(" · ") || "no publish target";
+}
+
+export function TargetChips({ publish }: { publish: PublishConfig | null | undefined }) {
+  const chips = publishParts(publish);
+  if (chips.length === 0) {
+    return <span className="text-xs text-amber-400">no publish target</span>;
+  }
+  return (
+    <>
+      {chips.map((c) => (
+        <span
+          key={c}
+          className="inline-flex items-center rounded-full bg-zinc-800 px-2 py-0.5 text-xs font-medium text-zinc-400"
+        >
+          {c}
+        </span>
+      ))}
+    </>
+  );
+}
+
 export function relTime(d: Date | string): string {
   const t = typeof d === "string" ? new Date(d) : d;
   const s = Math.round((Date.now() - t.getTime()) / 1000);
