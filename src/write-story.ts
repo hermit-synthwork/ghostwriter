@@ -23,7 +23,7 @@ Return exactly this shape (no markdown fence, no prose):
     "n": 1, "scene": "what is DRAWN — concrete, visual, NO dialogue text",
     "camera": "wide|mid|close|low angle|over-shoulder|...",
     "characters": ["name"],
-    "narration": "<=180 chars or null; at most one per panel, often null",
+    "narration": "<=120 chars or null; at most one per panel, often null — keep it short, its box sits over the art",
     "narration_pos": "top|bottom",
     "dialogue": [{ "speaker": "name", "text": "<=60 chars", "bubble_pos": [0.3, 0.4] }],
     "sfx": "optional single word e.g. KRRK, omit if none"

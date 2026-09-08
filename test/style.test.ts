@@ -28,10 +28,10 @@ test("resolveStyle throws for an unknown style", () => {
   assert.throws(() => resolveStyle("bogus"), /unknown style.*bogus/i);
 });
 
-test("listStyleKeys includes the four shipped styles", () => {
+test("listStyleKeys includes the five shipped styles", () => {
   assert.deepEqual(
     listStyleKeys().sort(),
-    ["graphic-novel-noir", "manga-ink", "retro-halftone", "wuxia-manhua"],
+    ["graphic-novel-noir", "japanese-anime", "manga-ink", "retro-halftone", "wuxia-manhua"],
   );
 });
 
@@ -45,4 +45,16 @@ test("resolveStyle returns bible + tokens for wuxia-manhua", () => {
 
 test("wuxia-manhua has a committed style-ref", () => {
   assert.equal(resolveStyle("wuxia-manhua").hasRef, true);
+});
+
+test("resolveStyle returns bible + tokens for japanese-anime", () => {
+  const s = resolveStyle("japanese-anime");
+  assert.match(s.bible, /japanese-anime \(FROZEN\)/);
+  assert.equal(s.tokens.ink, "#1E2230");
+  assert.equal(s.tokens.paper, "#F7F5F2");
+  assert.equal(s.tokens.accent, "#C7325A");
+});
+
+test("japanese-anime has a committed style-ref", () => {
+  assert.equal(resolveStyle("japanese-anime").hasRef, true);
 });

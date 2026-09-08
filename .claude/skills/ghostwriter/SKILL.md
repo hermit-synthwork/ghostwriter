@@ -82,8 +82,8 @@ it is not written to a file by hand. `<slug>` is 2–4 kebab words from the titl
              + "Describe subject, setting, mood, light.",
       "camera": "wide | mid | close | low angle | over-shoulder | etc.",
       "characters": ["Mara"],
-      "narration": "Optional caption for this panel, or null. <=180 chars. "
-                 + "Use at most one per panel; skip it when the art + dialogue carry the beat.",
+      "narration": "Optional caption for this panel, or null. <=120 chars — keep it short, "
+                 + "its box sits over the art. Use at most one per panel; skip it when the art + dialogue carry the beat.",
       "narration_pos": "top",
       "dialogue": [
         { "speaker": "Mara", "text": "<=60 chars, one balloon", "bubble_pos": [0.32, 0.4] }
