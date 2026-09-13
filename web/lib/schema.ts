@@ -12,6 +12,9 @@ export const autonomyEnum = pgEnum("autonomy", ["autonomous", "review_each", "re
 export const episodeStatusEnum = pgEnum("episode_status", [
   "generating", "ready", "approved", "scheduled", "posted", "failed", "rejected",
 ]);
+export const onboardingStatusEnum = pgEnum("onboarding_status", [
+  "pending_connect", "pending_payment", "active", "payment_failed", "canceled",
+]);
 
 export const tenant = pgTable("tenant", {
   id: text("id").primaryKey(),
@@ -28,7 +31,13 @@ export const tenant = pgTable("tenant", {
     tiktok?: { accountId: string; handle: string; format: "4x5" | "9x16" };
   }>(),
   active: boolean("active").notNull().default(true),
+  onboardingStatus: onboardingStatusEnum("onboarding_status").notNull().default("pending_connect"),
+  zernioProfileId: text("zernio_profile_id"),
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  stripeSubscriptionStatus: text("stripe_subscription_status"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const episode = pgTable("episode", {
