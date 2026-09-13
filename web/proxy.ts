@@ -1,10 +1,19 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
-// Protected-first: everything needs a session except Clerk's own auth routes
-// and the Stripe webhook (a server-to-server POST with no Clerk session — it
-// must never be redirected to sign-in). "/" is deliberately NOT public — the
-// episode queue is the thing being gated.
-const isPublicRoute = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)", "/api/stripe/webhook"]);
+// Protected-first: everything needs a session except Clerk's own auth routes,
+// the crawler files (robots/sitemap/llms.txt — a redirect to sign-in would hide
+// them), and the Stripe webhook (a server-to-server POST with no Clerk session).
+// Images, including og.jpg and the icons, skip middleware via the matcher below.
+// "/" is deliberately NOT public — the episode queue is the thing being gated.
+const isPublicRoute = createRouteMatcher([
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+  "/about",
+  "/api/stripe/webhook",
+  "/robots.txt",
+  "/sitemap.xml",
+  "/llms.txt",
+]);
 
 export default clerkMiddleware(
   async (auth, req) => {

@@ -1,4 +1,7 @@
 import { SignUp } from "@clerk/nextjs";
+import { buildMetadata } from "@/lib/seo";
+
+export const metadata = buildMetadata({ title: "Start your comic feed", path: "/sign-up" });
 
 export default function Page() {
   return (
