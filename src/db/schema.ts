@@ -8,26 +8,43 @@ export const episodeStatusEnum = pgEnum("episode_status", [
 ]);
 export const usageKindEnum = pgEnum("usage_kind", ["image", "story_tokens", "post"]);
 export const keyOwnerEnum = pgEnum("key_owner", ["platform", "tenant"]);
+export const onboardingStatusEnum = pgEnum("onboarding_status", [
+  "pending_connect", // tenant + Zernio profile created; social account not yet connected
+  "pending_payment", // social account connected; Stripe checkout not yet completed
+  "active", // subscription active — engine may run this tenant
+  "payment_failed", // subscription past_due/unpaid
+  "canceled", // subscription canceled
+]);
 
-export const tenant = pgTable("tenant", {
-  id: text("id").primaryKey(), // kebab-case
-  ownerUserId: text("owner_user_id"), // Clerk id; null for seed rows
-  displayName: text("display_name").notNull(),
-  styleKey: text("style_key").notNull(),
-  niche: text("niche").notNull(),
-  language: text("language").notNull().default("en"), // BCP-47-ish; "en" | "zh-Hans" so far
-  genres: genresEnum("genres").notNull(),
-  autonomy: autonomyEnum("autonomy").notNull(),
-  cadence: jsonb("cadence").notNull().$type<{ days: number[]; time: string; tz: string }>(),
-  publish: jsonb("publish").notNull().$type<{
-    instagram?: { accountId: string; handle: string; format: "4x5" | "9x16" };
-    tiktok?: { accountId: string; handle: string; format: "4x5" | "9x16" };
-  }>(),
-  geminiKeyEncrypted: text("gemini_key_encrypted"),
-  active: boolean("active").notNull().default(true),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const tenant = pgTable(
+  "tenant",
+  {
+    id: text("id").primaryKey(), // kebab-case
+    ownerUserId: text("owner_user_id"), // Clerk id; null for seed rows
+    displayName: text("display_name").notNull(),
+    styleKey: text("style_key").notNull(),
+    niche: text("niche").notNull(),
+    language: text("language").notNull().default("en"), // BCP-47-ish; "en" | "zh-Hans" so far
+    genres: genresEnum("genres").notNull(),
+    autonomy: autonomyEnum("autonomy").notNull(),
+    cadence: jsonb("cadence").notNull().$type<{ days: number[]; time: string; tz: string }>(),
+    publish: jsonb("publish").notNull().$type<{
+      instagram?: { accountId: string; handle: string; format: "4x5" | "9x16" };
+      tiktok?: { accountId: string; handle: string; format: "4x5" | "9x16" };
+    }>(),
+    geminiKeyEncrypted: text("gemini_key_encrypted"),
+    active: boolean("active").notNull().default(true),
+    // Self-serve onboarding + billing (operator-created tenants leave these null/default).
+    onboardingStatus: onboardingStatusEnum("onboarding_status").notNull().default("pending_connect"),
+    zernioProfileId: text("zernio_profile_id"),
+    stripeCustomerId: text("stripe_customer_id"),
+    stripeSubscriptionId: text("stripe_subscription_id"),
+    stripeSubscriptionStatus: text("stripe_subscription_status"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("tenant_stripe_subscription_idx").on(t.stripeSubscriptionId)],
+);
 
 export const episode = pgTable(
   "episode",

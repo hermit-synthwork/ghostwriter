@@ -15,7 +15,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${geist.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-zinc-950 text-zinc-100">
-        <ClerkProvider>
+        <ClerkProvider signInUrl="/sign-in" signUpUrl="/sign-up">
           <header className="sticky top-0 z-20 flex items-center justify-between border-b border-zinc-800 bg-zinc-950/85 px-4 py-3 backdrop-blur">
             <Link href="/" className="text-sm font-semibold tracking-tight text-zinc-200 hover:text-white">
               Ghostwriter <span className="text-zinc-500">/ review</span>

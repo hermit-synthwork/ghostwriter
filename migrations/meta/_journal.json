@@ -29,6 +29,20 @@
       "when": 1788263711410,
       "tag": "0003_demonic_boomer",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789297080340,
+      "tag": "0004_flawless_angel",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789299504871,
+      "tag": "0005_backfill_operator_onboarding_status",
+      "breakpoints": true
     }
   ]
 }
