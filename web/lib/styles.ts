@@ -23,9 +23,9 @@ export const STYLES: StyleOption[] = [
   },
   {
     key: "manga-ink",
-    label: "Manga Ink",
-    blurb: "Clean black-and-white manga linework with screentone shading.",
-    previewSrc: "/styles/manga-ink.jpg",
+    label: "Ink & Screentone",
+    blurb: "Crisp black-and-white linework with dotted screentone shading.",
+    previewSrc: "/styles/ink-screentone.jpg",
   },
   {
     key: "retro-halftone",
@@ -44,6 +44,12 @@ export const STYLES: StyleOption[] = [
     label: "Japanese Anime",
     blurb: "Bright, expressive anime-style cel shading.",
     previewSrc: "/styles/japanese-anime.jpg",
+  },
+  {
+    key: "ninja-anime",
+    label: "Ninja Anime",
+    blurb: "Slapstick shinobi comedy in bright anime colour, set in feudal Japan.",
+    previewSrc: "/styles/ninja-anime.jpg",
   },
 ];
 
