@@ -25,6 +25,21 @@ const STEPS = [
   },
 ];
 
+// Accounts already posting Ghostwriter comics. Deliberately no follower or view
+// numbers — these show what the comics look like, not a result anyone is promised.
+const EXAMPLES = [
+  {
+    handle: "bennysynthwork",
+    url: "https://www.instagram.com/bennysynthwork/",
+    body: "Everyday Singapore comedy told in Singlish, plus anime school-life stories.",
+  },
+  {
+    handle: "manhuajianghuart",
+    url: "https://www.instagram.com/manhuajianghuart/",
+    body: "Wuxia tales of wandering swordsmen, rival sects, and debts of honour — told in Chinese.",
+  },
+];
+
 const RHYTHM = [
   {
     title: "More chances to be seen",
@@ -88,6 +103,25 @@ export default function AboutPage() {
         </ol>
       </Section>
 
+      <Section title="See it in action" intro="These Instagram accounts post comics made by Ghostwriter.">
+        <ul className="grid gap-3 sm:grid-cols-2">
+          {EXAMPLES.map((e) => (
+            <li key={e.handle}>
+              <a
+                href={e.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block h-full rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 transition-colors hover:border-zinc-700 hover:bg-zinc-900"
+              >
+                <p className="font-semibold text-zinc-100">@{e.handle}</p>
+                <p className="mt-1.5 text-sm leading-relaxed text-zinc-400">{e.body}</p>
+                <p className="mt-3 text-sm font-medium text-amber-400">View on Instagram →</p>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </Section>
+
       <Section
         title="Why posting regularly helps"
         intro="Showing up often isn't a trick — it's how an account stays present in people's feeds and in their habits."
@@ -112,10 +146,13 @@ export default function AboutPage() {
         </p>
       </section>
 
-      <Section title="Five house styles" intro="Each account picks one, so every episode looks like it belongs to the same series.">
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <Section
+        title="House styles"
+        intro={`Each account picks one of ${STYLES.length} styles, so every episode looks like it belongs to the same series.`}
+      >
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {STYLES.map((s) => (
-            <li key={s.key}>
+            <li key={s.previewSrc}>
               <Image
                 src={s.previewSrc}
                 alt={`${s.label} house style sample`}
@@ -124,6 +161,7 @@ export default function AboutPage() {
                 className="aspect-square w-full rounded-md object-cover ring-1 ring-zinc-800"
               />
               <p className="mt-1.5 text-sm font-medium text-zinc-200">{s.label}</p>
+              <p className="text-xs leading-relaxed text-zinc-500">{s.blurb}</p>
             </li>
           ))}
         </ul>

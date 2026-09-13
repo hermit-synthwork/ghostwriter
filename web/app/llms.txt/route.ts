@@ -20,6 +20,11 @@ ${SITE_NAME} is a self-serve service for growing an Instagram account with seria
 - [Sign up](${SITE_URL}/sign-up): create an account, set up a comic feed, and see current pricing
 - [About](${SITE_URL}/about): what Ghostwriter does, why a regular posting rhythm and entertaining stories matter, and what it does not promise
 
+## Examples
+
+- [@bennysynthwork on Instagram](https://www.instagram.com/bennysynthwork/): everyday Singapore comedy told in Singlish, plus anime school-life stories
+- [@manhuajianghuart on Instagram](https://www.instagram.com/manhuajianghuart/): wuxia tales of wandering swordsmen and rival sects, told in Chinese
+
 ## How it works
 
 - Story: each episode is an original short story with a hook in panel 1 and a twist, punchline, or decisive turn in the last panel. Fresh cast every episode.
