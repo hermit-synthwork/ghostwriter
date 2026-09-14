@@ -70,6 +70,32 @@ test("dialogue flips to the top band only when narration owns the bottom", async
   assert.ok(y < size.h / 2, `expected bubble in top half, got y=${y} of ${size.h}`);
 });
 
+test("rendering without overlay options is unchanged by the series layout", async () => {
+  const a = await renderOverlaySvg(withText, story, brand, size);
+  const b = await renderOverlaySvg(withText, story, brand, size, undefined);
+  assert.equal(a, b);
+});
+
+test("series layout renders Chinese + Japanese subtitles and keeps bubbles in the bottom half", async () => {
+  const seriesPanel: Panel = {
+    n: 2, scene: "", camera: "", characters: [],
+    narration: "The storm hit at midnight.", narration_pos: "bottom", // series layout pins narration top regardless
+    narration_zh: "暴风雨在午夜来袭。", narration_ja: "嵐は真夜中に来た。",
+    dialogue: [{ speaker: "Hana", text: "Hold the wall!", zh: "守住防波墙！", ja: "壁を守って！", bubble_pos: [0.5, 0.88] }],
+  };
+  const opts = {
+    subtitles: [{ zh: "花：守住防波墙！", ja: "ハナ：壁を守って！" }],
+    narration: { zh: "暴风雨在午夜来袭。", ja: "嵐は真夜中に来た。" },
+  };
+  const withSubs = await renderOverlaySvg(seriesPanel, story, brand, size, opts);
+  const noSubs = await renderOverlaySvg(seriesPanel, story, brand, size);
+  assert.match(withSubs, /^<svg/);
+  assert.match(withSubs, /<path/);
+  assert.ok(withSubs.length > noSubs.length + 1000, `expected subtitles to add glyphs (${withSubs.length} vs ${noSubs.length})`);
+  const y = bubbleY(withSubs);
+  assert.ok(y > size.h / 2, `expected bubble in bottom half, got y=${y} of ${size.h}`);
+});
+
 test("the speaker label sits on a filled plate so it stays legible over dark art", async () => {
   const svg = await renderOverlaySvg(
     { ...withText, narration: null } as Panel, story, brand, size,

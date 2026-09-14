@@ -133,3 +133,30 @@ If a beat needs one of these to work, rewrite the beat.
   for that style** — the engine no longer auto-generates it.
 - per-episode character sheet — generated first, passed as a second reference so
   the one-off cast stays consistent within the episode.
+
+## Serialized lines (e.g. TIDEBREAKER)
+
+Everything above describes **standalone** lines. A tenant with a `series_key`
+(canon in `series/<key>/`) writes a continuing series instead:
+
+- **Genre:** tenant `genres: "drama_funny"`; each episode is `drama` (most weeks)
+  or `funny` (a comic-relief week, about one in four). Drama episodes end on a turn
+  or a cliffhanger — the season doesn't resolve every week.
+- **Cast:** recurring cast and frames use the canonical names from
+  `series/<key>/cast.json`, copied with their `visual_tags`. At most one one-off
+  guest per episode. The canon's `series-bible.md` (world, fixed facts, numbered
+  season arc) is followed exactly.
+- **Continuity:** the engine numbers episodes and feeds a recap of the last 4
+  canon episodes into the prompt. Each story carries
+  `"series": { "episode", "beat", "recap", "cliffhanger" }` (recap is internal).
+- **Languages:** English stays in the bubbles. Every dialogue line also carries
+  `"zh"` (≤16 chars) and `"ja"` (≤24 chars); every narration carries
+  `"narration_zh"` / `"narration_ja"`; plus `"title_zh"`, `"title_ja"`,
+  `"caption_zh"`, `"caption_ja"`. Panels are lettered with a 中文 / 日本語 subtitle
+  strip under the bubbles; narration sits at the top only.
+- **Shape:** 6–8 panels, at most 2 dialogue lines per panel.
+- **Consistency:** the committed `cast-sheet.png` and `mech-sheet.png` are passed
+  as references on every panel of every episode — never regenerated per episode.
+- **Safety:** the checklist above still applies; action is machine-on-machine and
+  bloodless, and nothing may resemble an existing mecha franchise or carry
+  insignia or readable markings.

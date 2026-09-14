@@ -1,7 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { loadEnv, requireEnv } from "./lib/env.ts";
 import { resolveStyle } from "./lib/style.ts";
-import { validateStory, type Story } from "./lib/story.ts";
+import { resolveSeries, canonicalNames, type ResolvedSeries } from "./lib/series.ts";
+import { validateStory, validateSeriesStory, type Genre, type Story } from "./lib/story.ts";
+import type { SeriesRecap } from "./db/episodes.ts";
 
 const MODEL = "claude-sonnet-5";
 
@@ -33,13 +35,49 @@ Return exactly this shape (no markdown fence, no prose):
 }
 bubble_pos = [x,y] fractions 0..1. Dialogue is composited into the calm top or bottom band, never over the art: set y ≈ 0.12 for the top band or y ≈ 0.88 for the bottom band — pick the band that is clear of the panel's main subject and opposite to any narration on that panel. x is a left/right lean only.`;
 
+const SERIES_SYSTEM = `You write the next episode of a serialized anime comic told as a swipe carousel, and return ONLY a JSON object.
+
+Rules:
+- This is one episode of a continuing series. Follow the SERIES BIBLE exactly — its world, fixed facts, cast, frames and season arc — and never contradict earlier episodes in the RECAP.
+- 6–8 panels. Panel 1 hooks; from episode 2 onward it may open on a quick "previously" beat. The final panel lands a turn or a cliffhanger — the season story does not have to resolve.
+- Recurring cast and frames use their canonical names exactly as given in CANON, in "speaker", "characters" and "cast". When a recurring member appears, copy their description and visual_tags from CANON into "cast". At most one new guest character per episode; give a guest a distinct silhouette and 2–4 visual_tags.
+- "genre" is "drama" for most episodes and "funny" for a comic-relief episode (about one in four, and on arc beats the bible marks as comic relief). A drama episode may hold one light beat, never mocking the stakes.
+- At most 2 dialogue lines per panel. Narration sits at the TOP only ("narration_pos": "top") — the bottom of every panel is reserved for subtitles.
+- Subtitles: every dialogue line carries "zh" (Simplified Chinese with full-width punctuation, <=16 characters) and "ja" (natural Japanese, <=24 characters) translations of "text". Every non-null "narration" carries "narration_zh" and "narration_ja". Use the canonical zh/ja names from CANON inside translations.
+- Original only: frames, factions and names must never resemble an existing mecha franchise (Gundam, Evangelion, Macross, Pacific Rim, BattleTech/MechWarrior, Code Geass). No emblems, insignia, unit numbers or readable markings in any scene.
+- PG-13 and platform-safe: action is bloodless and machine-on-machine — machines dent, spark and fall apart; people are never wounded or killed. No real named people or brands. No hate/slurs. No sexual content.
+
+Return exactly this shape (no markdown fence, no prose):
+{
+  "date": "YYYY-MM-DD", "slug": "kebab-2-4-words", "genre": "drama|funny",
+  "title": "...", "title_zh": "...", "title_ja": "...",
+  "logline": "one sentence, no spoiler",
+  "series": { "episode": 1, "beat": "which season beat this episode covers", "recap": "<=300 chars, internal, spoilers OK: what happened and what changed", "cliffhanger": "the open question this episode ends on, or null" },
+  "cast": [{ "name": "...", "description": "...", "visual_tags": ["..."] }],
+  "panels": [{
+    "n": 1, "scene": "what is DRAWN — concrete, visual, NO dialogue text, no insignia or markings",
+    "camera": "wide|mid|close|low angle|over-shoulder|cockpit|...",
+    "characters": ["canonical name"],
+    "narration": "<=80 chars or null", "narration_zh": "... or null", "narration_ja": "... or null",
+    "narration_pos": "top",
+    "dialogue": [{ "speaker": "canonical name", "text": "<=48 chars", "zh": "<=16 chars", "ja": "<=24 chars", "bubble_pos": [0.5, 0.88] }],
+    "sfx": "optional single word e.g. KRRNCH, omit if none"
+  }],
+  "caption": "English hook line + 1-2 line tease + soft follow CTA, no spoiler",
+  "caption_zh": "<=60 chars", "caption_ja": "<=80 chars",
+  "hashtags": ["6-12 single-word tags, no spaces, no # prefix, mix broad + niche"]
+}
+bubble_pos = [x,y] fractions 0..1. Dialogue is composited into the bottom band just above the subtitles, so use y ≈ 0.88. x is a left/right lean only.`;
+
 export interface StoryInput {
-  genre: "funny" | "horror" | "wuxia";
+  genre: Genre | "drama_funny";
   niche: string;
   styleKey: string;
   /** BCP-47-ish tenant language. Missing / "en" = English. "zh-Hans" = Simplified Chinese. */
   language?: string;
   priorTitles: string[];
+  /** Serialized lines only: the canon, this episode's number, and the canon episodes before it. */
+  series?: { resolved: ResolvedSeries; episodeNumber: number; recap: SeriesRecap[] };
 }
 
 /** Reader-facing text goes in the tenant's language; art-direction fields stay English. */
@@ -61,6 +99,7 @@ function languageBlock(language: string | undefined): string {
 }
 
 export function buildStoryMessages(input: StoryInput): { system: string; user: string } {
+  if (input.series) return buildSeriesStoryMessages(input, input.series);
   const style = resolveStyle(input.styleKey);
   const today = new Date().toISOString().slice(0, 10);
   const avoid = input.priorTitles.length
@@ -72,6 +111,37 @@ export function buildStoryMessages(input: StoryInput): { system: string; user: s
     `The art will be drawn in this house style — keep scenes achievable in it:\n\n${style.bible}` +
     languageBlock(input.language) + avoid;
   return { system: SYSTEM, user };
+}
+
+function buildSeriesStoryMessages(
+  input: StoryInput,
+  series: NonNullable<StoryInput["series"]>,
+): { system: string; user: string } {
+  const style = resolveStyle(input.styleKey);
+  const today = new Date().toISOString().slice(0, 10);
+  const { resolved, episodeNumber, recap } = series;
+  const canon = {
+    cast: resolved.cast,
+    frames: resolved.mechs,
+  };
+  const recapText = recap.length
+    ? recap
+        .map((r) => `EP ${r.episode} · ${r.title} — ${r.recap}${r.cliffhanger ? ` Ends on: ${r.cliffhanger}` : ""}`)
+        .join("\n")
+    : "None — this is the first episode.";
+  const user =
+    `Series: ${resolved.title.en} (${resolved.title.zh} / ${resolved.title.ja})\n` +
+    `Episode number: ${episodeNumber}\n` +
+    `Date for the "date" field: ${today}\n` +
+    `Genre mix: drama with comic relief — choose "drama" or "funny" for this episode by the rules.\n` +
+    `Account niche: ${input.niche}\n\n` +
+    `This episode covers season beat ${episodeNumber} of the arc in the bible. After the last listed beat, ` +
+    `continue into the next season from the final cliffhanger.\n\n` +
+    `SERIES BIBLE:\n\n${resolved.bible}\n\n` +
+    `CANON (use these names exactly):\n${JSON.stringify(canon, null, 2)}\n\n` +
+    `RECAP (earlier episodes, oldest first):\n${recapText}\n\n` +
+    `The art will be drawn in this house style — keep scenes achievable in it:\n\n${style.bible}`;
+  return { system: SERIES_SYSTEM, user };
 }
 
 export async function writeStory(input: StoryInput): Promise<{ story: Story; usageTokens: number }> {
@@ -105,7 +175,16 @@ export async function writeStory(input: StoryInput): Promise<{ story: Story; usa
       const json = JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g, "").trim());
       json.styleKey = input.styleKey;
       json.niche = input.niche;
-      validateStory(json as Story);
+      if (input.series) {
+        // The engine owns numbering; never trust the model's episode number.
+        json.series = { ...(json.series ?? {}), episode: input.series.episodeNumber };
+        validateSeriesStory(json as Story, {
+          names: canonicalNames(input.series.resolved),
+          maxGuests: input.series.resolved.maxGuests,
+        });
+      } else {
+        validateStory(json as Story);
+      }
       const usageTokens = (res.usage.input_tokens ?? 0) + (res.usage.output_tokens ?? 0);
       return { story: json as Story, usageTokens };
     } catch (e) {
@@ -117,14 +196,18 @@ export async function writeStory(input: StoryInput): Promise<{ story: Story; usa
 }
 
 // CLI: tsx src/write-story.ts --genre horror --niche "..." --style graphic-novel-noir
+//      tsx src/write-story.ts --series tidebreaker --episode 1   (drafts a series episode, no art)
 if (process.argv[1]?.endsWith("write-story.ts")) {
   const arg = (k: string) => { const i = process.argv.indexOf(`--${k}`); return i === -1 ? undefined : process.argv[i + 1]; };
+  const seriesKey = arg("series");
+  const resolved = seriesKey ? resolveSeries(seriesKey) : undefined;
   const { story } = await writeStory({
-    genre: (arg("genre") as "funny" | "horror" | "wuxia") ?? "horror",
-    niche: arg("niche") ?? "everyday life with a strange edge",
-    styleKey: arg("style") ?? "graphic-novel-noir",
+    genre: resolved ? "drama_funny" : ((arg("genre") as Genre) ?? "horror"),
+    niche: arg("niche") ?? (resolved ? `${resolved.title.en} — follow the series bible` : "everyday life with a strange edge"),
+    styleKey: resolved ? resolved.styleKey : (arg("style") ?? "graphic-novel-noir"),
     language: arg("lang") ?? "en",
     priorTitles: [],
+    series: resolved ? { resolved, episodeNumber: Number(arg("episode") ?? 1), recap: [] } : undefined,
   });
   process.stdout.write(JSON.stringify(story, null, 2) + "\n");
 }

@@ -12,12 +12,14 @@ entirely (no schema migration, no tsc-union edits).
 
 - **New style?** Yes if the visual idiom is genuinely different from the
   shipped ones (`graphic-novel-noir`, `manga-ink`, `retro-halftone`,
-  `wuxia-manhua`, `japanese-anime`).
-- **New genre value?** Yes if the story *shape* differs — the engine only knows
-  `funny` (punchline), `horror` (dread/twist), `wuxia` (decisive turn). A line that
-  is "funny but about X" is just a new `niche`, not a new genre.
-- **Standalone or serialized?** The engine is standalone-only (fresh cast every
-  episode, no cross-episode state). Serialized needs engine work — out of scope here.
+  `wuxia-manhua`, `japanese-anime`, `ninja-anime`, `mecha-anime`).
+- **New genre value?** Yes if the story *shape* differs — the engine knows
+  `funny` (punchline), `horror` (dread/twist), `wuxia` (decisive turn) and `drama`
+  (serialized turn or cliffhanger). A line that is "funny but about X" is just a new
+  `niche`, not a new genre.
+- **Standalone or serialized?** Standalone lines get a fresh cast every episode.
+  A serialized line (recurring cast, continuing arc, recaps) is supported — follow
+  §6 on top of §1–§5.
 - **Autonomy** — `review_each` (every episode waits for manual approval),
   `autonomous` (engine approves + pushes a Zernio **draft**, you publish there), or
   `scheduled` (engine approves + creates a **scheduled** Zernio post for that day at
@@ -161,3 +163,53 @@ Then check the new `episode` row: `status='ready'`, `genre='<genre>'`,
 populated; `usage_event` has one `story_tokens` + N `image` rows; the `run` row
 closed with `tenants_ok=1`. Panels land in Vercel Blob under `episodes/<id>/<uuid>/`.
 Nothing posts (`review_each` + `--dry`).
+
+## 6. Serialized lines
+
+A serialized line is a tenant with `series_key` set. The worked example is
+**TIDEBREAKER** (`series/tidebreaker/`, tenant `mecha`, style `mecha-anime`):
+the same pilot and frames every week, a numbered season arc, and every panel lettered
+with English bubbles plus a 中文 / 日本語 subtitle strip.
+
+1. **Canon — `series/<key>/`** (committed; the VPS runs from git):
+   - `series-bible.md` — world, fixed facts, main cast, frames/props, design rules, the
+     numbered season arc (one beat per episode), comic-relief rules, tone, banned
+     lookalikes. Get the operator's approval before generating anything.
+   - `cast.json` — `{ title: {en, zh, ja}, styleKey, cast: [...], mechs: [...], maxGuests }`;
+     every figure has `name`, `name_zh`, `name_ja`, `description`, `visual_tags`. Names
+     here are the only names the writer may use for recurring characters.
+   - `cast-sheet.png` + `mech-sheet.png` — model sheets passed as references on **every**
+     panel of every episode (never regenerated per episode). Generate candidates, pick,
+     copy into place:
+     ```bash
+     npx tsx scripts/gen-series-sheet.ts <key> ref 2    # style-ref candidates (then copy to styles/<styleKey>/)
+     npx tsx scripts/gen-series-sheet.ts <key> cast 2   # needs the style-ref committed first
+     npx tsx scripts/gen-series-sheet.ts <key> mech 2
+     ```
+     Candidates land in `.cache/series-candidates/<key>/`. Reject any with printed
+     labels, insignia, lookalike designs or bordered strips — the panels copy them.
+2. **Tenant** — `series_key: "<key>"`, `style_key` = the canon's `styleKey`,
+   `genres: "drama_funny"` (the writer picks `drama` or `funny` per episode),
+   `autonomy: "review_each"` for the first episodes, `active: false` until a dry run
+   has been reviewed. Prod insert: a `docs/cutover-*.sql` like
+   `docs/cutover-2026-09-15-mecha-series.sql`.
+3. **What the engine does differently** (all keyed off `tenant.seriesKey`):
+   - `write-story.ts` uses the separate `SERIES_SYSTEM` prompt with the bible, canon
+     JSON, `Episode number: N` and a recap of the last 4 canon episodes
+     (approved/scheduled/posted, from `story_json.series`). The standalone prompt is
+     unchanged.
+   - `validateSeriesStory` — 6–8 panels, ≤2 dialogue lines per panel, `zh`/`ja` on every
+     line, narration translations, `caption_zh`/`caption_ja`, at most `maxGuests`
+     non-canonical names.
+   - `episode.episode_number` is assigned by the engine (`nextEpisodeNumber`); a failed
+     or rejected episode frees its number for the retry.
+   - `resolveRunPlan` skips the tenant while its newest episode is still `ready`, so a
+     story never builds on an unreviewed episode.
+   - `art.ts` passes `[style-ref, cast-sheet, mech-sheet]` (+ a per-episode sheet only
+     for a one-off guest).
+   - `letter.ts` pins narration top (with translations) and stacks English bubbles
+     above the subtitle strip; the caption becomes `EP NN · title` + English + 中文 + 日本語.
+4. **Draft a story without art** (~1–2¢) to sanity-check the canon and translations:
+   `npx tsx src/write-story.ts --series <key> --episode 1`.
+5. **Instagram cap** — Zernio/Instagram carousels allow at most 10 images, and
+   `buildPostBody` refuses more.

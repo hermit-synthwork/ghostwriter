@@ -1,7 +1,8 @@
-import { pgTable, pgEnum, text, integer, boolean, timestamp, jsonb, uuid, index } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { pgTable, pgEnum, text, integer, boolean, timestamp, jsonb, uuid, index, uniqueIndex } from "drizzle-orm/pg-core";
 
-export const genreEnum = pgEnum("genre", ["funny", "horror", "wuxia"]);
-export const genresEnum = pgEnum("genres", ["funny", "horror", "both", "wuxia"]);
+export const genreEnum = pgEnum("genre", ["funny", "horror", "wuxia", "drama"]);
+export const genresEnum = pgEnum("genres", ["funny", "horror", "both", "wuxia", "drama_funny"]);
 export const autonomyEnum = pgEnum("autonomy", ["autonomous", "review_each", "review_weekly", "scheduled"]);
 export const episodeStatusEnum = pgEnum("episode_status", [
   "generating", "ready", "approved", "scheduled", "posted", "failed", "rejected",
@@ -23,6 +24,8 @@ export const tenant = pgTable(
     ownerUserId: text("owner_user_id"), // Clerk id; null for seed rows
     displayName: text("display_name").notNull(),
     styleKey: text("style_key").notNull(),
+    // A serialized line: key of a committed `series/<key>/` canon. Null = standalone episodes.
+    seriesKey: text("series_key"),
     niche: text("niche").notNull(),
     language: text("language").notNull().default("en"), // BCP-47-ish; "en" | "zh-Hans" so far
     genres: genresEnum("genres").notNull(),
@@ -64,11 +67,19 @@ export const episode = pgTable(
     scheduledFor: timestamp("scheduled_for", { withTimezone: true }),
     posts: jsonb("posts").$type<{ platform: string; handle: string; postId: string }[]>(),
     error: text("error"),
+    // Serialized lines only: 1, 2, 3… per tenant. Null for standalone episodes.
+    episodeNumber: integer("episode_number"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     approvedAt: timestamp("approved_at", { withTimezone: true }),
     postedAt: timestamp("posted_at", { withTimezone: true }),
   },
-  (t) => [index("episode_tenant_created_idx").on(t.tenantId, t.createdAt.desc())],
+  (t) => [
+    index("episode_tenant_created_idx").on(t.tenantId, t.createdAt.desc()),
+    // A retry after a failed/rejected episode reuses its number; live episodes can't collide.
+    uniqueIndex("episode_tenant_number_uq")
+      .on(t.tenantId, t.episodeNumber)
+      .where(sql`${t.status} not in ('failed', 'rejected')`),
+  ],
 );
 
 export const usageEvent = pgTable(

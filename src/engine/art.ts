@@ -2,13 +2,14 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { panelFile, type Story, type Panel } from "../lib/story.ts";
 import { resolveStyle, type ResolvedStyle } from "../lib/style.ts";
+import { resolveSeries, ensureSeriesSheets, canonicalNames } from "../lib/series.ts";
 import { generateImage, type RefImage } from "../gemini.ts";
 import { logUsage } from "../lib/usage.ts";
 import { REPO_ROOT } from "../lib/env.ts";
 import type { TenantConfig } from "../lib/tenant.ts";
 
 /** House-style preamble prepended to the style-ref and character-sheet prompts. */
-function styleHeader(styleBible: string): string {
+export function styleHeader(styleBible: string): string {
   return (
     styleBible +
     "\n\nRender in exactly this house style. Comic panel illustration only — " +
@@ -21,7 +22,7 @@ function styleHeader(styleBible: string): string {
  * rather than its extension. The committed `style-ref.png` files are JPEG bytes
  * despite the `.png` name; the per-episode character sheet is a real PNG.
  */
-function imageRef(path: string): RefImage {
+export function imageRef(path: string): RefImage {
   const data = readFileSync(path);
   const mimeType =
     data[0] === 0xff && data[1] === 0xd8
@@ -103,16 +104,19 @@ async function generateCharacterSheet(
   return out;
 }
 
-/** Generate every raw panel image for the episode (skips ones already on disk). */
+/**
+ * Generate every raw panel image for the episode (skips ones already on disk).
+ * Refs are the style key-art first, then every model sheet for this episode.
+ */
 async function generatePanels(
   tenant: TenantConfig,
   episodeId: string,
   rawDir: string,
   story: Story,
   style: ResolvedStyle,
-  sheetPath: string,
+  sheetPaths: string[],
 ): Promise<void> {
-  const refs = [imageRef(style.refPath), imageRef(sheetPath)];
+  const refs = [imageRef(style.refPath), ...sheetPaths.map(imageRef)];
 
   for (const panel of story.panels) {
     const dest = join(rawDir, panelFile(panel.n));
@@ -150,8 +154,23 @@ export async function generateArt(
   mkdirSync(rawDir, { recursive: true });
 
   ensureStyleRef(style);
-  const sheet = await generateCharacterSheet(tenant, episodeId, rawDir, story, style);
-  await generatePanels(tenant, episodeId, rawDir, story, style, sheet);
+  if (tenant.seriesKey) {
+    // Serialized line: the recurring cast and frames are drawn against committed,
+    // hand-approved sheets so they look identical every week. Only a one-off guest
+    // gets a fresh per-episode sheet.
+    const series = resolveSeries(tenant.seriesKey);
+    ensureSeriesSheets(series);
+    const canon = new Set(canonicalNames(series));
+    const guests = story.cast.filter((c) => !canon.has(c.name));
+    const sheets = [series.castSheetPath, series.mechSheetPath];
+    if (guests.length) {
+      sheets.push(await generateCharacterSheet(tenant, episodeId, rawDir, { ...story, cast: guests }, style));
+    }
+    await generatePanels(tenant, episodeId, rawDir, story, style, sheets);
+  } else {
+    const sheet = await generateCharacterSheet(tenant, episodeId, rawDir, story, style);
+    await generatePanels(tenant, episodeId, rawDir, story, style, [sheet]);
+  }
 
   console.log(`\n✓ raw panels in ${rawDir}`);
 }

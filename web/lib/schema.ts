@@ -1,13 +1,13 @@
 /**
  * Subset of the engine's `../../src/db/schema.ts`. The review app only ever
  * reads/writes the `episode` and `tenant` tables. The engine repo's
- * `migrations/` are the source of truth for column shape — keep this in sync if
- * a migration changes either table (rare; the surface is frozen since 0003).
+ * `migrations/` are the source of truth for column shape — keep this in sync
+ * whenever a migration changes either table.
  */
-import { pgTable, pgEnum, text, boolean, timestamp, jsonb, uuid } from "drizzle-orm/pg-core";
+import { pgTable, pgEnum, text, integer, boolean, timestamp, jsonb, uuid } from "drizzle-orm/pg-core";
 
-export const genreEnum = pgEnum("genre", ["funny", "horror", "wuxia"]);
-export const genresEnum = pgEnum("genres", ["funny", "horror", "both", "wuxia"]);
+export const genreEnum = pgEnum("genre", ["funny", "horror", "wuxia", "drama"]);
+export const genresEnum = pgEnum("genres", ["funny", "horror", "both", "wuxia", "drama_funny"]);
 export const autonomyEnum = pgEnum("autonomy", ["autonomous", "review_each", "review_weekly", "scheduled"]);
 export const episodeStatusEnum = pgEnum("episode_status", [
   "generating", "ready", "approved", "scheduled", "posted", "failed", "rejected",
@@ -21,6 +21,7 @@ export const tenant = pgTable("tenant", {
   ownerUserId: text("owner_user_id"),
   displayName: text("display_name").notNull(),
   styleKey: text("style_key").notNull(),
+  seriesKey: text("series_key"),
   niche: text("niche").notNull(),
   language: text("language").notNull().default("en"),
   genres: genresEnum("genres").notNull(),
@@ -56,6 +57,7 @@ export const episode = pgTable("episode", {
   scheduledFor: timestamp("scheduled_for", { withTimezone: true }),
   posts: jsonb("posts").$type<{ platform: string; handle: string; postId: string }[]>(),
   error: text("error"),
+  episodeNumber: integer("episode_number"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   approvedAt: timestamp("approved_at", { withTimezone: true }),
   postedAt: timestamp("posted_at", { withTimezone: true }),

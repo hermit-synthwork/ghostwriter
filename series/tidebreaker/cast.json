@@ -1,0 +1,83 @@
+{
+  "title": { "en": "TIDEBREAKER", "zh": "破浪者", "ja": "タイドブレイカー" },
+  "styleKey": "mecha-anime",
+  "cast": [
+    {
+      "name": "Hana",
+      "name_zh": "花",
+      "name_ja": "ハナ",
+      "description": "Hana Kurose, 19, rookie pilot of Ashgull; a stubborn, quick, over-apologising dockhand from Tanabe Salvage",
+      "visual_tags": [
+        "short choppy black bob with one orange hair clip",
+        "faded orange-and-grey flight suit with taped knees",
+        "work gloves clipped to her belt",
+        "slim build, determined wide eyes"
+      ]
+    },
+    {
+      "name": "Gen",
+      "name_zh": "源",
+      "name_ja": "ゲン",
+      "description": "Gen Tanabe, 56, gruff owner and chief mechanic of Tanabe Salvage; Hana's mentor",
+      "visual_tags": [
+        "grey buzz cut and thick grey moustache",
+        "oil-stained navy mechanic coveralls, sleeves rolled",
+        "towel around his neck",
+        "stocky broad build, always holding a wrench"
+      ]
+    },
+    {
+      "name": "PIPPA",
+      "name_zh": "皮帕",
+      "name_ja": "ピッパ",
+      "description": "Ashgull's cheerful, literal salvaged onboard AI; appears only as a face on the cockpit dashboard screen",
+      "visual_tags": [
+        "small rectangular dashboard screen",
+        "simple glowing face: two round dots and a line mouth",
+        "soft cyan screen glow",
+        "no body"
+      ]
+    },
+    {
+      "name": "Yui",
+      "name_zh": "唯",
+      "name_ja": "ユイ",
+      "description": "Yui Kanzaki, 20, Kanzaki Marine Security ace pilot and company heir; precise, proud rival",
+      "visual_tags": [
+        "long straight silver-white hair in a high ponytail",
+        "fitted white-and-teal pilot suit",
+        "narrow calm eyes",
+        "tall upright posture, arms often crossed"
+      ]
+    }
+  ],
+  "mechs": [
+    {
+      "name": "Ashgull",
+      "name_zh": "灰鸥",
+      "name_ja": "アッシュガル",
+      "description": "Hana's decades-old harbour-defence frame rebuilt from salvage; chunky, heavy and deliberate, about 18 metres tall",
+      "visual_tags": [
+        "dull grey riveted plating with faded safety-orange forearm stripes",
+        "one mismatched replacement shoulder plate",
+        "single wide visor slit with soft amber glow",
+        "winch and harpoon cable on the right forearm",
+        "chest work floodlights, broad boxy shoulders"
+      ]
+    },
+    {
+      "name": "Halcyon",
+      "name_zh": "翠鸥",
+      "name_ja": "ハルシオン",
+      "description": "Yui's modern Kanzaki Marine Security frame; slimmer, faster and always spotless",
+      "visual_tags": [
+        "clean white-and-teal plating",
+        "smooth rounded head with twin horizontal sensor lines",
+        "folding shield on the left arm",
+        "pneumatic lance on the right arm",
+        "slim agile silhouette"
+      ]
+    }
+  ],
+  "maxGuests": 1
+}
