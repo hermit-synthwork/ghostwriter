@@ -1,4 +1,4 @@
-export type Genre = "funny" | "horror" | "wuxia";
+export type Genre = "funny" | "horror" | "wuxia" | "drama";
 
 export interface CastMember {
   name: string;
@@ -11,6 +11,9 @@ export interface Dialogue {
   text: string;
   /** [x, y] as fractions 0..1 of the panel, where the balloon tail points. */
   bubble_pos: [number, number];
+  /** Serialized lines only: subtitle translations of `text`. */
+  zh?: string;
+  ja?: string;
 }
 
 export interface Panel {
@@ -25,6 +28,18 @@ export interface Panel {
   dialogue: Dialogue[];
   /** Optional hand-drawn SFX word baked into the art. */
   sfx?: string;
+  /** Serialized lines only: translations of `narration`. */
+  narration_zh?: string | null;
+  narration_ja?: string | null;
+}
+
+/** Continuity metadata for a serialized episode (stored inside story_json). */
+export interface SeriesMeta {
+  episode: number;
+  beat: string;
+  /** Internal, spoilers allowed — fed to the next episode's prompt, never shown. */
+  recap: string;
+  cliffhanger: string | null;
 }
 
 export interface Story {
@@ -39,6 +54,11 @@ export interface Story {
   hashtags: string[];
   styleKey?: string;
   niche?: string;
+  series?: SeriesMeta;
+  title_zh?: string;
+  title_ja?: string;
+  caption_zh?: string;
+  caption_ja?: string;
 }
 
 export interface Status {
@@ -74,6 +94,65 @@ export function validateStory(s: Story): void {
   if (!Array.isArray(s.hashtags) || s.hashtags.length === 0) problems.push("missing hashtags");
   if (problems.length) {
     throw new Error("Invalid story.json:\n  - " + problems.join("\n  - "));
+  }
+}
+
+/** The subset of a series' canon that validation needs (keeps this module fs-free). */
+export interface SeriesCanon {
+  names: string[];
+  maxGuests: number;
+}
+
+const HAN = /\p{Script=Han}/u;
+const KANA = /[\p{Script=Hiragana}\p{Script=Katakana}]/u;
+
+/**
+ * Extra rules for a serialized episode on top of `validateStory`. Short Japanese
+ * lines can be all kanji (了解。), so kana is checked across the episode's
+ * Japanese lines together, and each line must differ from its Chinese line —
+ * that still rejects Chinese pasted into the Japanese field.
+ */
+export function validateSeriesStory(s: Story, canon: SeriesCanon): void {
+  validateStory(s);
+  const problems: string[] = [];
+  if (s.genre !== "drama" && s.genre !== "funny") problems.push(`series genre must be drama or funny (got "${s.genre}")`);
+  if (s.panels.length < 6 || s.panels.length > 8) problems.push(`series panels must be 6-8 (got ${s.panels.length})`);
+  if (!s.series || typeof s.series.episode !== "number") problems.push("missing series.episode");
+  if (!s.series?.recap) problems.push("missing series.recap");
+
+  const jaLines: string[] = [];
+  const zhLines: string[] = [];
+  const guests = new Set<string>();
+  for (const p of s.panels) {
+    if ((p.dialogue?.length ?? 0) > 2) problems.push(`panel ${p.n}: at most 2 dialogue lines (got ${p.dialogue.length})`);
+    p.dialogue?.forEach((d, j) => {
+      if (!d.zh) problems.push(`panel ${p.n} dialogue ${j}: missing zh`);
+      if (!d.ja) problems.push(`panel ${p.n} dialogue ${j}: missing ja`);
+      if (d.zh && d.ja && d.zh.trim() === d.ja.trim()) problems.push(`panel ${p.n} dialogue ${j}: ja is identical to zh`);
+      if (d.zh) zhLines.push(d.zh);
+      if (d.ja) jaLines.push(d.ja);
+      if (d.speaker && !canon.names.includes(d.speaker)) guests.add(d.speaker);
+    });
+    if (p.narration) {
+      if (!p.narration_zh) problems.push(`panel ${p.n}: missing narration_zh`);
+      if (!p.narration_ja) problems.push(`panel ${p.n}: missing narration_ja`);
+      if (p.narration_zh) zhLines.push(p.narration_zh);
+      if (p.narration_ja) jaLines.push(p.narration_ja);
+    }
+  }
+  for (const c of s.cast ?? []) if (!canon.names.includes(c.name)) guests.add(c.name);
+  if (guests.size > canon.maxGuests) {
+    problems.push(`at most ${canon.maxGuests} guest character(s) (got ${[...guests].join(", ")})`);
+  }
+  if (!s.caption_zh) problems.push("missing caption_zh");
+  if (!s.caption_ja) problems.push("missing caption_ja");
+  if (s.caption_zh) zhLines.push(s.caption_zh);
+  if (s.caption_ja) jaLines.push(s.caption_ja);
+  if (zhLines.length && !zhLines.some((l) => HAN.test(l))) problems.push("zh text contains no Chinese characters");
+  if (jaLines.length && !jaLines.some((l) => KANA.test(l))) problems.push("ja text contains no kana — looks like it isn't Japanese");
+
+  if (problems.length) {
+    throw new Error("Invalid series story.json:\n  - " + problems.join("\n  - "));
   }
 }
 

@@ -43,6 +43,13 @@ test("schedule mode still carries scheduledFor + timezone (and needs them)", () 
   assert.throws(() => buildPostBody({ ...base, mode: "schedule" }), /needs scheduledFor \+ timezone/);
 });
 
+test("an Instagram carousel over 10 images is refused; 10 is fine; TikTok is not capped here", () => {
+  const urls = (n: number) => Array.from({ length: n }, (_, i) => `https://m/${i}.jpg`);
+  assert.throws(() => buildPostBody({ ...base, mediaUrls: urls(11) }), /at most 10/);
+  assert.doesNotThrow(() => buildPostBody({ ...base, mediaUrls: urls(10) }));
+  assert.doesNotThrow(() => buildPostBody({ ...base, platform: "tiktok", accountId: "tt1", mediaUrls: urls(11) }));
+});
+
 test("draft mode sets isDraft", () => {
   assert.equal(buildPostBody({ ...base, mode: "draft" }).isDraft, true);
 });

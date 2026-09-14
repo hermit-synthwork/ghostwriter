@@ -28,11 +28,18 @@ test("resolveStyle throws for an unknown style", () => {
   assert.throws(() => resolveStyle("bogus"), /unknown style.*bogus/i);
 });
 
-test("listStyleKeys includes the six shipped styles", () => {
+test("listStyleKeys includes the seven shipped styles", () => {
   assert.deepEqual(
     listStyleKeys().sort(),
-    ["graphic-novel-noir", "japanese-anime", "manga-ink", "ninja-anime", "retro-halftone", "wuxia-manhua"],
+    ["graphic-novel-noir", "japanese-anime", "manga-ink", "mecha-anime", "ninja-anime", "retro-halftone", "wuxia-manhua"],
   );
+});
+
+test("mecha-anime has a frozen bible, tokens, and a committed style-ref", () => {
+  const s = resolveStyle("mecha-anime");
+  assert.match(s.bible, /mecha-anime \(FROZEN\)/);
+  assert.equal(s.tokens.accent, "#D9651C");
+  assert.equal(s.hasRef, true);
 });
 
 test("resolveStyle returns bible + tokens for wuxia-manhua", () => {

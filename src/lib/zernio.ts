@@ -74,6 +74,9 @@ export async function uploadImage(
 
 export type PublishMode = "draft" | "now" | "schedule";
 
+/** Instagram carousel cap through Zernio's API (the Instagram app itself allows more). */
+export const MAX_CAROUSEL_ITEMS = 10;
+
 export interface CreatedPost {
   post?: { _id?: string; status?: string };
   _id?: string;
@@ -107,6 +110,11 @@ export function tiktokTitle(content: string): string {
  * Instagram uses the caption+hashtags string directly as `content`.
  */
 export function buildPostBody(opts: PostSpec): Record<string, unknown> {
+  if (opts.platform === "instagram" && opts.mediaUrls.length > MAX_CAROUSEL_ITEMS) {
+    throw new Error(
+      `Instagram carousel has ${opts.mediaUrls.length} images — Zernio/Instagram allow at most ${MAX_CAROUSEL_ITEMS}`,
+    );
+  }
   const body: Record<string, unknown> = {
     content: opts.content,
     mediaItems: opts.mediaUrls.map((url) => ({ type: "image", url })),

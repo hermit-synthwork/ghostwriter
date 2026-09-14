@@ -25,6 +25,19 @@ test("genre + genres enums include wuxia", async () => {
   assert.match(String(rows[0]!.gs), /wuxia/);
 });
 
+test("series support: drama genres and series/episode-number columns", async () => {
+  const rows = await testDb.execute(sql`
+    select enum_range(null::genre) as g, enum_range(null::genres) as gs`);
+  assert.match(String(rows[0]!.g), /drama/);
+  assert.match(String(rows[0]!.gs), /drama_funny/);
+  const cols = await testDb.execute(sql`
+    select table_name, column_name from information_schema.columns
+    where table_schema = 'public'
+      and ((table_name = 'tenant' and column_name = 'series_key')
+        or (table_name = 'episode' and column_name = 'episode_number'))`);
+  assert.equal(cols.length, 2);
+});
+
 test("autonomy enum includes scheduled; tenant has a language column", async () => {
   const rows = await testDb.execute(sql`select enum_range(null::autonomy) as a`);
   assert.match(String(rows[0]!.a), /scheduled/);

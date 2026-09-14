@@ -17,8 +17,26 @@ export interface OverlayBrand {
   lang?: string;
 }
 
+/** One dialogue line's subtitles, speaker names already localized. */
+export interface SubtitlePair {
+  zh: string;
+  ja: string;
+}
+
+/**
+ * Serialized lines: English stays in the bubbles; translations go in a subtitle
+ * strip at the bottom and under the narration. Passing options switches the
+ * panel to that layout (narration pinned top, dialogue + strip bottom).
+ */
+export interface OverlayOptions {
+  subtitles: SubtitlePair[];
+  narration?: { zh: string | null; ja: string | null };
+}
+
 /** Rounded bold Simplified-Chinese comic face for the burned-in lettering of zh tenants. */
 const ZCOOL_KUAILE = "ZCOOL KuaiLe";
+/** Rounded Japanese face for subtitle lines. */
+const MPLUS_ROUNDED = "M PLUS Rounded 1c";
 const isCjk = (lang?: string): boolean => !!lang && lang.startsWith("zh");
 /** Narration-box face: Chinese comic for zh tenants, else the Latin body face. */
 const bodyFace = (lang?: string): string => (isCjk(lang) ? ZCOOL_KUAILE : "Comic Neue");
@@ -40,8 +58,10 @@ function hexToRgba(hex: string, alpha: number): string {
 const FONT_DIR_BANGERS = join(REPO_ROOT, "node_modules/@fontsource/bangers/files");
 const FONT_DIR_COMIC = join(REPO_ROOT, "node_modules/@fontsource/comic-neue/files");
 const FONT_DIR_ZCOOL = join(REPO_ROOT, "node_modules/@fontsource/zcool-kuaile/files");
+const FONT_DIR_MPLUS = join(REPO_ROOT, "node_modules/@fontsource/m-plus-rounded-1c/files");
 
 let fontCache: SatoriFont[] | null = null;
+let jaFontCache: SatoriFont[] | null = null;
 
 function fonts(): SatoriFont[] {
   if (fontCache) return fontCache;
@@ -69,6 +89,22 @@ function fonts(): SatoriFont[] {
     { name: ZCOOL_KUAILE, data: cjk, weight: 700, style: "normal" },
   ];
   return fontCache;
+}
+
+/** The Japanese face is only read from disk when a panel actually has Japanese subtitles. */
+function fontsWithJapanese(): SatoriFont[] {
+  if (!jaFontCache) {
+    jaFontCache = [
+      ...fonts(),
+      {
+        name: MPLUS_ROUNDED,
+        data: readFileSync(join(FONT_DIR_MPLUS, "m-plus-rounded-1c-japanese-700-normal.woff")),
+        weight: 700,
+        style: "normal",
+      },
+    ];
+  }
+  return jaFontCache;
 }
 
 /* -------------------------- hyperscript -------------------------- */
@@ -117,12 +153,23 @@ function narrationBox(
   bottomSafe: number,
   tokens: StyleTokens,
   lang?: string,
+  translations?: { zh: string | null; ja: string | null },
 ): El {
+  const sub = (line: string | null, face: string, size: number): El | null =>
+    line
+      ? el(
+          "div",
+          { style: { display: "flex", color: tokens.paper, fontFamily: face, fontWeight: 700, fontSize: size, lineHeight: 1.35, opacity: 0.9 } },
+          line,
+        )
+      : null;
   return el(
     "div",
     {
       style: {
         display: "flex",
+        flexDirection: "column",
+        gap: 6,
         position: "absolute",
         left: MARGIN,
         width: w - MARGIN * 2,
@@ -147,6 +194,8 @@ function narrationBox(
       },
       text,
     ),
+    translations ? sub(translations.zh, ZCOOL_KUAILE, 28) : null,
+    translations ? sub(translations.ja, MPLUS_ROUNDED, 26) : null,
   );
 }
 
@@ -243,6 +292,60 @@ function dialogueBand(
   );
 }
 
+/** Full-width scrim with each dialogue line's Chinese row then Japanese row. */
+function subtitleStrip(pairs: SubtitlePair[], w: number, tokens: StyleTokens): El {
+  const row = (text: string, face: string, size: number): El =>
+    el(
+      "div",
+      { style: { display: "flex", color: tokens.paper, fontFamily: face, fontWeight: 700, fontSize: size, lineHeight: 1.3 } },
+      text,
+    );
+  return el(
+    "div",
+    {
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        gap: 4,
+        width: w - MARGIN * 2,
+        background: hexToRgba(tokens.ink, 0.8),
+        borderTop: `3px solid ${tokens.accent}`,
+        borderRadius: 8,
+        padding: "12px 22px",
+      },
+    },
+    ...pairs.flatMap((p) => [row(p.zh, ZCOOL_KUAILE, 28), row(p.ja, MPLUS_ROUNDED, 26)]),
+  );
+}
+
+/** Serialized layout: English bubbles stacked directly above the subtitle strip, bottom-anchored. */
+function subtitledDialogueColumn(
+  dialogue: NonNullable<Panel["dialogue"]>,
+  pairs: SubtitlePair[],
+  w: number,
+  bottomSafe: number,
+  tokens: StyleTokens,
+): El {
+  const maxW = Math.min(760, w - MARGIN * 2);
+  return el(
+    "div",
+    {
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 12,
+        position: "absolute",
+        left: MARGIN,
+        width: w - MARGIN * 2,
+        bottom: bottomSafe + 8,
+      },
+    },
+    ...dialogue.map((d) => speechBubble(d.speaker ?? "", d.text, maxW, tokens)),
+    pairs.length ? subtitleStrip(pairs, w, tokens) : null,
+  );
+}
+
 /* ----------------------------- render ----------------------------- */
 
 export async function renderOverlaySvg(
@@ -250,6 +353,7 @@ export async function renderOverlaySvg(
   story: Story,
   brand: OverlayBrand,
   size: { w: number; h: number },
+  opts?: OverlayOptions,
 ): Promise<string> {
   const { w, h } = size;
   const { tokens } = brand;
@@ -265,16 +369,26 @@ export async function renderOverlaySvg(
     ),
   );
 
-  const topNarr = !!panel.narration && (panel.narration_pos ?? "top") === "top";
-  const botNarr = !!panel.narration && panel.narration_pos === "bottom";
-
-  if (panel.narration) {
-    children.push(narrationBox(panel.narration, topNarr, w, h, bottomSafe, tokens, brand.lang));
-  }
-
   const dl = panel.dialogue ?? [];
-  if (dl.length) {
-    children.push(dialogueBand(dl, w, tokens, topNarr, botNarr, brand.lang));
+
+  if (opts) {
+    // Serialized layout: narration always top (with translations), bubbles + subtitles bottom.
+    if (panel.narration) {
+      children.push(narrationBox(panel.narration, true, w, h, bottomSafe, tokens, undefined, opts.narration));
+    }
+    if (dl.length) {
+      children.push(subtitledDialogueColumn(dl, opts.subtitles, w, bottomSafe, tokens));
+    }
+  } else {
+    const topNarr = !!panel.narration && (panel.narration_pos ?? "top") === "top";
+    const botNarr = !!panel.narration && panel.narration_pos === "bottom";
+
+    if (panel.narration) {
+      children.push(narrationBox(panel.narration, topNarr, w, h, bottomSafe, tokens, brand.lang));
+    }
+    if (dl.length) {
+      children.push(dialogueBand(dl, w, tokens, topNarr, botNarr, brand.lang));
+    }
   }
 
   // watermark — always rendered
@@ -300,12 +414,13 @@ export async function renderOverlaySvg(
     ),
   );
 
-  // page counter — always rendered
+  // page counter — always rendered. Bold Comic Neue, not Bangers: in Bangers a
+  // "7" is nearly indistinguishable from a "1" at chip size.
   children.push(
     el(
       "div",
       { style: { display: "flex", position: "absolute", bottom: 28, right: MARGIN } },
-      chip(`${panel.n}/${story.panels.length}`, tokens),
+      chip(`${panel.n}/${story.panels.length}`, tokens, { fontFamily: "Comic Neue", fontWeight: 700, fontSize: 28 }),
     ),
   );
 
@@ -322,5 +437,10 @@ export async function renderOverlaySvg(
     ...children,
   );
 
-  return satori(root as unknown as ReactNode, { width: w, height: h, fonts: fonts() });
+  const needsJapanese = !!opts && (opts.subtitles.some((p) => p.ja) || !!opts.narration?.ja);
+  return satori(root as unknown as ReactNode, {
+    width: w,
+    height: h,
+    fonts: needsJapanese ? fontsWithJapanese() : fonts(),
+  });
 }

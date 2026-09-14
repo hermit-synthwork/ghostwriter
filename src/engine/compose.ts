@@ -1,10 +1,11 @@
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import sharp from "sharp";
-import { panelFile, type Story } from "../lib/story.ts";
+import { panelFile, type Panel, type Story } from "../lib/story.ts";
 import { resolveStyle } from "../lib/style.ts";
+import { resolveSeries, localName, type ResolvedSeries } from "../lib/series.ts";
 import { normalize916, crop45, overlay, W, H_916, H_45 } from "../lib/image.ts";
-import { renderOverlaySvg, type OverlayBrand } from "../lib/letter.ts";
+import { renderOverlaySvg, type OverlayBrand, type OverlayOptions } from "../lib/letter.ts";
 import { putPanel } from "../lib/blob.ts";
 import { REPO_ROOT } from "../lib/env.ts";
 import type { TenantConfig } from "../lib/tenant.ts";
@@ -36,12 +37,28 @@ export function brandFor(tenant: TenantConfig, story: Story): OverlayBrand {
   };
 }
 
+/** Subtitles for one serialized panel: localized speaker name + the line's translation. */
+export function overlayOptsFor(panel: Panel, series: ResolvedSeries): OverlayOptions {
+  const prefix = (speaker: string, lang: "zh" | "ja") =>
+    speaker ? `${localName(series, speaker, lang)}：` : "";
+  return {
+    subtitles: (panel.dialogue ?? [])
+      .filter((d) => d.zh || d.ja)
+      .map((d) => ({
+        zh: `${prefix(d.speaker, "zh")}${d.zh ?? ""}`,
+        ja: `${prefix(d.speaker, "ja")}${d.ja ?? ""}`,
+      })),
+    narration: { zh: panel.narration_zh ?? null, ja: panel.narration_ja ?? null },
+  };
+}
+
 /**
  * Letter every raw panel of one episode: normalise to 9x16, burn in the SVG
  * overlay, then centre-crop to 4x5. Each final is encoded to JPEG and uploaded
  * to Vercel Blob; the returned URLs (panel order) are what the episode row and
  * downstream publishers consume. Raw panels must already exist in
- * `.cache/<episodeId>/` (run the art engine first).
+ * `.cache/<episodeId>/` (run the art engine first). Serialized tenants get the
+ * English-bubbles + 中文/日本語 subtitle layout.
  */
 export async function composeEpisode(
   tenant: TenantConfig,
@@ -51,6 +68,7 @@ export async function composeEpisode(
 ): Promise<PanelUrls> {
   const cacheDir = join(REPO_ROOT, ".cache", episodeId);
   const brand = brandFor(tenant, story);
+  const series = tenant.seriesKey ? resolveSeries(tenant.seriesKey) : null;
   const urls: PanelUrls = { "4x5": [], "9x16": [] };
 
   console.log(`\nGhostwriter · compose · ${story.slug} (${story.panels.length} panels)\n`);
@@ -62,13 +80,14 @@ export async function composeEpisode(
         `Missing raw panel: ${rawPath}\n  Run  npm run art ${story.slug}  first.`,
       );
     }
+    const opts = series ? overlayOptsFor(panel, series) : undefined;
 
     const base916 = await normalize916(readFileSync(rawPath));
-    const svg916 = await renderOverlaySvg(panel, story, brand, { w: W, h: H_916 });
+    const svg916 = await renderOverlaySvg(panel, story, brand, { w: W, h: H_916 }, opts);
     const buf916 = await overlay(base916, svg916);
 
     const base45 = await crop45(base916);
-    const svg45 = await renderOverlaySvg(panel, story, brand, { w: W, h: H_45 });
+    const svg45 = await renderOverlaySvg(panel, story, brand, { w: W, h: H_45 }, opts);
     const buf45 = await overlay(base45, svg45);
 
     const jpg9 = await sharp(buf916)

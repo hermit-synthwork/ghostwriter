@@ -8,9 +8,11 @@ export interface TenantConfig {
   id: string;
   displayName: string;
   styleKey: string;
+  /** Set for a serialized line — key of a committed `series/<key>/` canon. */
+  seriesKey?: string;
   niche: string;
   language: string; // "en" | "zh-Hans"
-  genres: "funny" | "horror" | "wuxia" | "both";
+  genres: "funny" | "horror" | "wuxia" | "both" | "drama_funny";
   autonomy: "autonomous" | "review_each" | "review_weekly" | "scheduled";
   cadence: Cadence;
   publish: { instagram?: PublishTarget; tiktok?: PublishTarget };
@@ -43,8 +45,8 @@ export function isDue(t: TenantConfig, now: Date, lastEpisodeDate: string | null
 
 function toConfig(r: TenantRow): TenantConfig {
   return {
-    id: r.id, displayName: r.displayName, styleKey: r.styleKey, niche: r.niche,
-    language: r.language, genres: r.genres, autonomy: r.autonomy, cadence: r.cadence,
+    id: r.id, displayName: r.displayName, styleKey: r.styleKey, seriesKey: r.seriesKey ?? undefined,
+    niche: r.niche, language: r.language, genres: r.genres, autonomy: r.autonomy, cadence: r.cadence,
     publish: r.publish, geminiKey: undefined, // BYO wired in sub-project B
   };
 }

@@ -2,7 +2,9 @@ import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { testDb, resetTables } from "./db-helpers.ts";
 import { tenant } from "../src/db/schema.ts";
-import { createEpisode, setEpisodeStatus, getEpisode, recentEpisodes } from "../src/db/episodes.ts";
+import {
+  createEpisode, setEpisodeStatus, getEpisode, recentEpisodes, nextEpisodeNumber, seriesRecap, latestEpisodeStatus,
+} from "../src/db/episodes.ts";
 import type { Story } from "../src/lib/story.ts";
 
 const story = {
@@ -39,6 +41,40 @@ test("setEpisodeStatus patches caption/hashtags/status", async () => {
   assert.equal(row.status, "ready");
   assert.equal(row.caption, "final");
   assert.deepEqual(row.hashtags, ["#sg", "#kopi"]);
+});
+
+test("nextEpisodeNumber counts live episodes; a failed one frees its number", async () => {
+  assert.equal(await nextEpisodeNumber("acme"), 1);
+  const one = await createEpisode("acme", story, { episodeNumber: 1 });
+  assert.equal(await nextEpisodeNumber("acme"), 2);
+  await setEpisodeStatus(one.id, "failed", { error: "boom" });
+  assert.equal(await nextEpisodeNumber("acme"), 1);
+});
+
+test("seriesRecap returns only canon episodes, oldest first, with the stored recap", async () => {
+  const mk = async (n: number, status: "posted" | "approved" | "ready" | "rejected") => {
+    const { id } = await createEpisode("acme", { ...story, slug: `ep-${n}`, title: `EP${n}` }, { episodeNumber: n });
+    await setEpisodeStatus(id, status, {
+      storyJson: { ...story, series: { episode: n, beat: "b", recap: `recap ${n}`, cliffhanger: n === 2 ? "hook" : null } },
+    });
+  };
+  await mk(1, "posted");
+  await mk(2, "approved");
+  await mk(3, "ready");
+  await mk(4, "rejected");
+  const recap = await seriesRecap("acme", 4);
+  assert.deepEqual(recap, [
+    { episode: 1, title: "EP1", recap: "recap 1", cliffhanger: null },
+    { episode: 2, title: "EP2", recap: "recap 2", cliffhanger: "hook" },
+  ]);
+});
+
+test("latestEpisodeStatus reports the newest episode's status", async () => {
+  assert.equal(await latestEpisodeStatus("acme"), null);
+  const { id } = await createEpisode("acme", story);
+  assert.equal(await latestEpisodeStatus("acme"), "generating");
+  await setEpisodeStatus(id, "ready");
+  assert.equal(await latestEpisodeStatus("acme"), "ready");
 });
 
 test("recentEpisodes returns newest-first meta", async () => {

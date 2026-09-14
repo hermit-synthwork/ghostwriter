@@ -35,6 +35,29 @@ test("resolveRunPlan honours a wuxia single-genre tenant", async () => {
   assert.equal(plan[0]!.genre, "wuxia");
 });
 
+test("resolveRunPlan passes drama_funny through for the series writer to choose", async () => {
+  const plan = await resolveRunPlan([mk({ id: "a", genres: "drama_funny" })], mon0930sg);
+  assert.equal(plan.length, 1);
+  assert.equal(plan[0]!.genre, "drama_funny");
+});
+
+test("resolveRunPlan skips a series tenant whose last episode still awaits review", async () => {
+  const series = mk({ id: "a", genres: "drama_funny", seriesKey: "tidebreaker" });
+  const lastWeek = new Date("2026-08-24T01:30:00Z");
+  await testDb.insert(episode).values({
+    tenantId: "a", slug: "ep-1", genre: "drama", title: "EP1", logline: "l",
+    storyJson: {}, blobPrefix: "pending", createdAt: lastWeek, status: "ready", episodeNumber: 1,
+  } as never);
+  assert.deepEqual(await resolveRunPlan([series], mon0930sg), []);
+
+  await resetTables("episode");
+  await testDb.insert(episode).values({
+    tenantId: "a", slug: "ep-1", genre: "drama", title: "EP1", logline: "l",
+    storyJson: {}, blobPrefix: "pending", createdAt: lastWeek, status: "posted", episodeNumber: 1,
+  } as never);
+  assert.equal((await resolveRunPlan([series], mon0930sg)).length, 1);
+});
+
 test("resolveRunPlan skips a tenant that already has an episode today", async () => {
   // Insert with an explicit createdAt on the fixture's day, so the same-day guard is
   // deterministic regardless of the real wall-clock (recentEpisodes reads the date in

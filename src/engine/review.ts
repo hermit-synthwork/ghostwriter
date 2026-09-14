@@ -11,6 +11,17 @@ export function formatHashtags(tags: string[]): string {
     .join(" ");
 }
 
+/** Serialized caption: episode number + English, then the Chinese and Japanese lines. */
+export function seriesCaption(story: Story): string {
+  const head = story.series ? `EP ${String(story.series.episode).padStart(2, "0")} · ${story.title}\n` : "";
+  const lines = [
+    `${head}${story.caption}`,
+    story.caption_zh ? `中文 · ${story.caption_zh}` : "",
+    story.caption_ja ? `日本語 · ${story.caption_ja}` : "",
+  ].filter(Boolean);
+  return lines.join("\n\n");
+}
+
 /**
  * Mark an episode ready for review: write its caption, tokenised hashtags,
  * canonical story JSON and composed panel URLs onto the episode row. Replaces
@@ -22,7 +33,7 @@ export async function finalizeEpisode(
   panelUrls: PanelUrls,
 ): Promise<void> {
   await setEpisodeStatus(episodeId, "ready", {
-    caption: story.caption,
+    caption: story.series ? seriesCaption(story) : story.caption,
     hashtags: formatHashtags(story.hashtags).split(" ").filter(Boolean),
     storyJson: story,
     panelUrls,

@@ -2,9 +2,13 @@ import { rmSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { listActiveTenants, getTenant, isDue, type TenantConfig } from "./lib/tenant.ts";
 import { scheduleSlot, zonedWallClockToUtc } from "./lib/schedule.ts";
-import { recentEpisodes, createEpisode, setEpisodeStatus } from "./db/episodes.ts";
+import {
+  recentEpisodes, createEpisode, setEpisodeStatus, nextEpisodeNumber, seriesRecap, latestEpisodeStatus,
+} from "./db/episodes.ts";
 import { logUsage } from "./lib/usage.ts";
-import { writeStory } from "./write-story.ts";
+import { writeStory, type StoryInput } from "./write-story.ts";
+import { resolveSeries, ensureSeriesSheets } from "./lib/series.ts";
+import type { Genre } from "./lib/story.ts";
 import { generateArt } from "./engine/art.ts";
 import { composeEpisode } from "./engine/compose.ts";
 import { finalizeEpisode } from "./engine/review.ts";
@@ -14,10 +18,12 @@ import { run as runTbl } from "./db/schema.ts";
 import { REPO_ROOT, loadEnv, requireEnv } from "./lib/env.ts";
 import { eq } from "drizzle-orm";
 
-export interface RunPlanItem { tenantId: string; genre: "funny" | "horror" | "wuxia" }
+/** `drama_funny` is passed through: a serialized line's writer picks drama or funny per episode. */
+export interface RunPlanItem { tenantId: string; genre: Genre | "drama_funny" }
 
 const CACHE_DIR = join(REPO_ROOT, ".cache");
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const RECAP_EPISODES = 4;
 
 /**
  * Housekeeping for `.cache/<episodeId>/` raw-panel dirs. Pass the id of an
@@ -51,7 +57,12 @@ export async function resolveRunPlan(tenants: TenantConfig[], now: Date): Promis
     const recent = await recentEpisodes(t.id, 5); // TODO(B): compare dates in tenant tz
     const last = recent[0]?.date ?? null;
     if (!isDue(t, now, last)) continue;
-    const genre: "funny" | "horror" | "wuxia" =
+    // A serialized line never builds a new episode on top of one nobody has reviewed yet.
+    if (t.seriesKey && (await latestEpisodeStatus(t.id)) === "ready") {
+      console.log(`[${t.id}] skipped — previous series episode is still awaiting review`);
+      continue;
+    }
+    const genre: RunPlanItem["genre"] =
       t.genres !== "both" ? t.genres : recent[0]?.genre === "horror" ? "funny" : "horror";
     plan.push({ tenantId: t.id, genre });
   }
@@ -63,8 +74,8 @@ export async function runDueTenants(opts: {
 }): Promise<void> {
   const now = opts.now ?? new Date();
   const tenants = opts.tenantId ? [await getTenant(opts.tenantId)] : await listActiveTenants();
-  const plan = opts.tenantId
-    ? tenants.map((t) => ({ tenantId: t.id, genre: (t.genres !== "both" ? t.genres : "horror") as "funny" | "horror" | "wuxia" }))
+  const plan: RunPlanItem[] = opts.tenantId
+    ? tenants.map((t) => ({ tenantId: t.id, genre: t.genres !== "both" ? t.genres : "horror" }))
     : await resolveRunPlan(tenants, now);
 
   if (plan.length === 0) {
@@ -93,15 +104,29 @@ export async function runDueTenants(opts: {
       let episodeId: string | undefined;
       try {
         const t = await getTenant(item.tenantId);
-        const recent = await recentEpisodes(t.id, 5);
+
+        let series: StoryInput["series"];
+        if (t.seriesKey) {
+          const resolved = resolveSeries(t.seriesKey);
+          ensureSeriesSheets(resolved); // before any paid call
+          series = {
+            resolved,
+            episodeNumber: await nextEpisodeNumber(t.id),
+            recap: await seriesRecap(t.id, RECAP_EPISODES),
+          };
+        }
+
+        const recent = series ? [] : await recentEpisodes(t.id, 5);
         const { story, usageTokens } = await writeStory({
           genre: item.genre, niche: t.niche, styleKey: t.styleKey, language: t.language,
           priorTitles: recent.map((r) => r.title),
+          series,
         });
-        const ep = await createEpisode(t.id, story);
+        const ep = await createEpisode(t.id, story, { episodeNumber: series?.episodeNumber });
         episodeId = ep.id;
         await logUsage(t.id, { episodeId, kind: "story_tokens", qty: usageTokens, keyOwner: "platform" });
-        console.log(`\n[${t.id}] ${story.genre} · ${story.title} → episode ${episodeId}`);
+        const epLabel = series ? `EP ${series.episodeNumber} · ` : "";
+        console.log(`\n[${t.id}] ${story.genre} · ${epLabel}${story.title} → episode ${episodeId}`);
 
         await generateArt(t, episodeId, story);
         const panelUrls = await composeEpisode(t, episodeId, ep.blobPrefix, story);

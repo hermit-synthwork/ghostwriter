@@ -11,15 +11,14 @@
    `singlish-review`, and `wuxia`.
 5. Dry-run once: `npm run run -- --tenant singlish-review --dry`; check the Neon `episode`
    row + Vercel Blob objects.
-6. Crontab. Command is unchanged (`npm run run`). Timing:
-   - `singlish` (autonomous → Zernio draft): fire time doesn't matter much, keep 01:00 UTC.
-   - `wuxia` (autonomy `scheduled`): the run **generates** the episode and creates a
-     *scheduled* Zernio post for that day at `cadence.time` (09:00 SGT = 01:00 UTC).
-     So the cron must fire a few hours **before** 09:00 SGT — e.g. `0 22 * * 0,2,4` UTC
-     (06:00 SGT Mon/Wed/Fri) gives a 3-hour window to cancel in Zernio. If the run
-     fires after 09:00 SGT it falls back to scheduling ~2h out.
-   One crontab line covers all due tenants; pick a fire time that satisfies the
-   earliest `cadence.time` among scheduled tenants.
+6. Crontab. Command is unchanged (`npm run run`). One line covers every tenant:
+   `0 1 * * 0,2,4,6` UTC = Sun/Tue/Thu/Sat 09:00 SGT (no posts Mon/Wed/Fri).
+   - `review_each` / `autonomous` tenants use `cadence.time` 09:00, so the 09:00 trigger
+     passes their time gate.
+   - `scheduled` tenants (`wuxia`, `anime`) **generate** at the 09:00 trigger and create a
+     *scheduled* Zernio post at their `cadence.time` of 10:00 — an hour to cancel in
+     Zernio. If a run ever starts after `cadence.time` it falls back to ~2h out.
+   A new tenant must use one of those four weekdays, or add its day to the cron.
 7. Watch `run.log` + the `run` table for the first live fire. A `scheduled` tenant's
    episode row lands at `status='scheduled'` with `scheduled_for` set; the post shows
    in Zernio's queue.
